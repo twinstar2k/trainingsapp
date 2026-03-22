@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import app from './firebase';
 import type {
-  AppUser,
+  UserProfile,
   Exercise,
   Studio,
   WeightEntry,
@@ -84,13 +84,13 @@ function withId<T extends DocumentData>(id: string, data: T): T & { id: string }
 
 // ─── User ────────────────────────────────────────────────────────────────────
 
-export async function getUser(uid: string): Promise<AppUser | null> {
+export async function getUser(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(userDoc(uid));
   if (!snap.exists()) return null;
-  return withId(snap.id, snap.data()) as AppUser;
+  return withId(snap.id, snap.data()) as unknown as UserProfile;
 }
 
-export async function setUser(uid: string, data: Omit<AppUser, 'uid' | 'createdAt'>): Promise<void> {
+export async function setUser(uid: string, data: Omit<UserProfile, 'uid' | 'createdAt'>): Promise<void> {
   await setDoc(userDoc(uid), { ...data, createdAt: serverTimestamp() }, { merge: true });
 }
 

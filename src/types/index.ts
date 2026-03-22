@@ -1,106 +1,62 @@
-import { Timestamp } from 'firebase/firestore';
-
-// --- User ---
-
-export interface AppUser {
-  uid: string;
-  name: string;
-  email: string;
-  birthday?: string; // ISO date string, e.g. "1990-05-15"
-  createdAt: Timestamp;
-}
-
-// --- Exercise (global catalog) ---
-
-export type ExerciseType = 'strength_weighted' | 'strength_reps_only' | 'cardio_basic';
-
-export type MuscleGroup =
-  | 'Brust'
-  | 'Rücken'
-  | 'Schultern'
-  | 'Beine'
-  | 'Bizeps'
-  | 'Trizeps'
-  | 'Core'
-  | 'Trapez'
-  | 'Brust/Trizeps'
-  | 'Schultern/Rücken'
-  | 'Cardio';
+export type ExerciseType = 'weighted' | 'reps_only' | 'cardio_basic';
 
 export interface Exercise {
   id: string;
   name: string;
   type: ExerciseType;
-  muscleGroup: MuscleGroup;
-  contextDependent: boolean; // true = Maschinen/Seilzüge (studio-bound), false = global
+  muscleGroup: string;
+  contextDependent: boolean;
 }
-
-// --- Studio ---
 
 export interface Studio {
   id: string;
   name: string;
-  createdAt: Timestamp;
+  createdAt: number;
 }
-
-// --- Weight History ---
 
 export interface WeightEntry {
   id: string;
-  date: string; // ISO date string, e.g. "2024-03-15"
-  weight: number; // in kg
+  date: string; // YYYY-MM-DD
+  weight: number;
 }
 
-// --- Training ---
-
-export type TrainingStatus = 'in_progress' | 'completed';
-
-export interface Training {
+export interface TrainingSet {
   id: string;
-  date: string; // ISO date string
-  studioId: string;
-  templateId?: string;
-  status: TrainingStatus;
-  notes?: string;
+  reps?: number;
+  weight?: number;
+  duration?: number; // in seconds
+  distance?: number; // in km
+  status: 'open' | 'done';
+  order: number;
 }
-
-// --- Training Exercise (subcollection under training) ---
-
-export type ExerciseStatus = 'pending' | 'completed' | 'skipped';
 
 export interface TrainingExercise {
   id: string;
   exerciseId: string;
   order: number;
-  status: ExerciseStatus;
+  status: 'open' | 'done';
+  sets?: TrainingSet[]; // Loaded separately or nested depending on view
 }
 
-// --- Set (subcollection under training exercise) ---
-
-export type SetStatus = 'pending' | 'completed';
-
-export interface TrainingSet {
+export interface Training {
   id: string;
-  order: number;
-  status: SetStatus;
-  // strength_weighted
-  reps?: number;
-  weight?: number; // in kg
-  // cardio_basic
-  duration?: number; // in seconds
-  distance?: number; // in meters
-}
-
-// --- Template ---
-
-export interface TemplateExercise {
-  exerciseId: string;
-  order: number;
+  date: string; // YYYY-MM-DD
+  studioId: string;
+  templateId?: string;
+  status: 'active' | 'completed';
+  notes?: string;
 }
 
 export interface Template {
   id: string;
   name: string;
-  exercises: TemplateExercise[];
-  createdAt: Timestamp;
+  exercises: string[]; // Array of exercise IDs
+}
+
+export interface UserProfile {
+  uid: string;
+  name: string;
+  email: string;
+  birthday?: string;
+  createdAt: number;
 }
