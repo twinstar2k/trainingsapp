@@ -12,7 +12,7 @@ export default function NewTraining() {
   const navigate = useNavigate();
   const [studios, setStudios] = useState<Studio[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [studioId, setStudioId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,9 +29,7 @@ export default function NewTraining() {
           loadedStudios.push({ id: doc.id, ...doc.data() } as Studio);
         });
         setStudios(loadedStudios.sort((a, b) => a.createdAt - b.createdAt));
-        if (loadedStudios.length > 0) {
-          setStudioId(loadedStudios[0].id);
-        }
+        if (loadedStudios.length > 0) setStudioId(loadedStudios[0].id);
       } catch (error) {
         console.error("Error fetching studios:", error);
       } finally {
@@ -55,7 +53,6 @@ export default function NewTraining() {
         status: 'active',
         createdAt: Date.now()
       });
-      
       navigate(`/trainings/${docRef.id}`);
     } catch (error) {
       console.error("Error creating training:", error);
@@ -64,17 +61,17 @@ export default function NewTraining() {
   };
 
   if (loading) {
-    return <div className="text-center py-12 text-zinc-500">Lade...</div>;
+    return <div className="text-center py-12 text-on-surface-variant">Lade...</div>;
   }
 
   if (studios.length === 0) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-zinc-900">Neues Training</h2>
+        <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">Neues Training</h2>
         <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl text-center">
           <h3 className="text-amber-800 font-semibold mb-2">Kein Studio vorhanden</h3>
-          <p className="text-amber-700 text-sm mb-4">Du musst zuerst ein Studio in deinem Profil anlegen, bevor du ein Training starten kannst.</p>
-          <button 
+          <p className="text-amber-700 text-sm mb-4">Du musst zuerst ein Studio in deinem Profil anlegen.</p>
+          <button
             onClick={() => navigate('/profile')}
             className="bg-amber-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-amber-700 transition-colors"
           >
@@ -87,34 +84,34 @@ export default function NewTraining() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-zinc-900">Neues Training</h2>
+      <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">Neues Training</h2>
 
       <form onSubmit={handleStart} className="space-y-6">
-        <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
-          
+        <div className="bg-surface-container-lowest p-6 rounded-2xl border border-surface-container shadow-sm space-y-4">
+
           <div>
-            <label className="flex items-center text-xs font-semibold text-zinc-900 uppercase tracking-wider mb-2">
-              <Calendar className="w-4 h-4 mr-2 text-zinc-400" />
+            <label className="flex items-center text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
+              <Calendar className="w-4 h-4 mr-2 text-outline" />
               Datum
             </label>
-            <input 
-              type="date" 
+            <input
+              type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
+              className="w-full h-14 bg-surface-container-low ring-1 ring-outline-variant/30 rounded-2xl px-4 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150"
               required
             />
           </div>
 
           <div>
-            <label className="flex items-center text-xs font-semibold text-zinc-900 uppercase tracking-wider mb-2">
-              <MapPin className="w-4 h-4 mr-2 text-zinc-400" />
+            <label className="flex items-center text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
+              <MapPin className="w-4 h-4 mr-2 text-outline" />
               Studio
             </label>
-            <select 
+            <select
               value={studioId}
               onChange={(e) => setStudioId(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors appearance-none"
+              className="w-full h-14 bg-surface-container-low ring-1 ring-outline-variant/30 rounded-2xl px-4 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150 appearance-none"
               required
             >
               {studios.map(s => (
@@ -125,12 +122,12 @@ export default function NewTraining() {
 
         </div>
 
-        <button 
+        <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-semibold text-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center disabled:opacity-70"
+          className="w-full h-14 bg-primary text-on-primary rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-primary-container transition-all duration-150 active:scale-[0.97] flex items-center justify-center disabled:opacity-70"
         >
-          <Dumbbell className="w-6 h-6 mr-2" />
+          <Dumbbell className="w-5 h-5 mr-2" />
           {isSubmitting ? 'Startet...' : 'Training starten'}
         </button>
       </form>

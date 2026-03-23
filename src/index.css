@@ -1,7 +1,49 @@
 @import "tailwindcss";
 
 @theme {
+  /* Fonts */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-headline: "Plus Jakarta Sans", sans-serif;
+
+  /* Primary */
+  --color-primary: #059669;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #00855d;
+
+  /* Surfaces */
+  --color-background: #f9f9f9;
+  --color-surface: #f9f9f9;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f3f3;
+  --color-surface-container: #eeeeee;
+  --color-surface-container-high: #e8e8e8;
+  --color-surface-container-highest: #e2e2e2;
+
+  /* Text */
+  --color-on-surface: #1a1c1c;
+  --color-on-surface-variant: #3d4a42;
+
+  /* Outline */
+  --color-outline: #6d7a72;
+  --color-outline-variant: #bccac0;
+
+  /* Status */
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-tertiary: #9b3e3b;
+  --color-secondary: #3e6753;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: #f9f9f9;
+    color: #1a1c1c;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-headline);
+  }
 }
 
 @layer utilities {

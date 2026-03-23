@@ -31,7 +31,7 @@ export default function Exercises() {
     fetchCatalog();
   }, [user]);
 
-  const filteredCatalog = catalog.filter(ex => 
+  const filteredCatalog = catalog.filter(ex =>
     ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ex.muscleGroup.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -39,40 +39,43 @@ export default function Exercises() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-zinc-900">Übungskatalog</h2>
+        <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">Übungskatalog</h2>
       </div>
 
+      {/* Search */}
       <div className="relative">
-        <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-        <input 
-          type="text" 
+        <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-outline" />
+        <input
+          type="text"
           placeholder="Suchen nach Name oder Muskelgruppe..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent shadow-sm"
+          className="w-full h-14 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-2xl pl-12 pr-4 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150"
         />
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-zinc-500">Lade Übungen...</div>
+        <div className="text-center py-12 text-on-surface-variant">Lade Übungen...</div>
       ) : catalog.length === 0 ? (
-        <div className="bg-white p-8 rounded-2xl border border-zinc-200 text-center shadow-sm">
-          <div className="bg-zinc-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Activity className="w-8 h-8 text-zinc-400" />
+        <div className="bg-surface-container-lowest p-8 rounded-2xl border border-surface-container text-center shadow-sm">
+          <div className="bg-surface-container-low w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Activity className="w-8 h-8 text-outline" />
           </div>
-          <h3 className="text-lg font-semibold text-zinc-900 mb-2">Keine Übungen</h3>
-          <p className="text-zinc-500 text-sm">Gehe ins Profil und initialisiere den Katalog.</p>
+          <h3 className="text-lg font-semibold text-on-surface mb-2">Keine Übungen</h3>
+          <p className="text-on-surface-variant text-sm">Gehe ins Profil und initialisiere den Katalog.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-sm">
-          <ul className="divide-y divide-zinc-100">
+        <div className="bg-surface-container-lowest rounded-2xl border border-surface-container overflow-hidden shadow-sm">
+          <ul className="divide-y divide-surface-container">
             {filteredCatalog.map(ex => (
-              <li key={ex.id} className="p-4 hover:bg-zinc-50 transition-colors">
-                <div className="font-medium text-zinc-900">{ex.name}</div>
-                <div className="text-xs text-zinc-500 mt-1 flex items-center gap-2">
-                  <span className="bg-zinc-100 px-2 py-0.5 rounded-md">{ex.muscleGroup}</span>
+              <li key={ex.id} className="p-4 hover:bg-surface-container-low transition-colors duration-150">
+                <div className="font-bold text-on-surface">{ex.name}</div>
+                <div className="text-xs mt-1 flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md">
+                    {ex.muscleGroup}
+                  </span>
                   {ex.contextDependent && (
-                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100">
+                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
                       Studio-gebunden
                     </span>
                   )}
@@ -80,8 +83,8 @@ export default function Exercises() {
               </li>
             ))}
             {filteredCatalog.length === 0 && (
-              <li className="p-8 text-center text-zinc-500 text-sm">
-                Keine Übung für "{searchQuery}" gefunden.
+              <li className="p-8 text-center text-on-surface-variant text-sm">
+                Keine Übung für „{searchQuery}" gefunden.
               </li>
             )}
           </ul>

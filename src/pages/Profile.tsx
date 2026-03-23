@@ -45,7 +45,6 @@ export default function Profile() {
         name: newStudioName.trim(),
         createdAt: Date.now()
       });
-      
       setStudios([...studios, { id: docRef.id, name: newStudioName.trim(), createdAt: Date.now() }]);
       setNewStudioName('');
     } catch (error) {
@@ -81,29 +80,29 @@ export default function Profile() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-zinc-900 mb-1">Profil & Einstellungen</h2>
-        <p className="text-zinc-500 text-sm">{user?.email}</p>
+        <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface mb-1">Profil & Einstellungen</h2>
+        <p className="text-on-surface-variant text-sm">{user?.email}</p>
       </div>
 
       {/* Studios Management */}
       <section>
-        <h3 className="text-sm font-semibold text-zinc-900 uppercase tracking-wider mb-4">Meine Studios</h3>
-        
-        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-sm">
+        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">Meine Studios</h3>
+
+        <div className="bg-surface-container-lowest rounded-2xl border border-surface-container overflow-hidden shadow-sm">
           {loading ? (
-            <div className="p-4 text-center text-zinc-500 text-sm">Lade Studios...</div>
+            <div className="p-4 text-center text-on-surface-variant text-sm">Lade Studios...</div>
           ) : studios.length === 0 ? (
-            <div className="p-4 text-center text-zinc-500 text-sm border-b border-zinc-100">
+            <div className="p-4 text-center text-on-surface-variant text-sm border-b border-surface-container">
               Noch keine Studios angelegt.
             </div>
           ) : (
-            <ul className="divide-y divide-zinc-100">
+            <ul className="divide-y divide-surface-container">
               {studios.map(studio => (
                 <li key={studio.id} className="p-4 flex items-center justify-between">
-                  <span className="font-medium text-zinc-900">{studio.name}</span>
-                  <button 
+                  <span className="font-medium text-on-surface">{studio.name}</span>
+                  <button
                     onClick={() => handleDeleteStudio(studio.id)}
-                    className="text-zinc-400 hover:text-red-500 p-2 -mr-2 transition-colors"
+                    className="text-outline hover:text-error p-2 -mr-2 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -111,20 +110,20 @@ export default function Profile() {
               ))}
             </ul>
           )}
-          
-          <div className="p-4 bg-zinc-50">
+
+          <div className="p-4 bg-surface-container-low">
             <form onSubmit={handleAddStudio} className="flex gap-2">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={newStudioName}
                 onChange={(e) => setNewStudioName(e.target.value)}
                 placeholder="Neues Studio (z.B. Home Gym)"
-                className="flex-1 bg-white border border-zinc-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="flex-1 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150"
               />
-              <button 
+              <button
                 type="submit"
                 disabled={!newStudioName.trim()}
-                className="bg-zinc-900 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-zinc-800 transition-colors"
+                className="w-10 h-10 rounded-full bg-surface-container-high text-primary flex items-center justify-center hover:bg-primary hover:text-on-primary transition-all duration-150 active:scale-90 disabled:opacity-50"
               >
                 <Plus className="w-5 h-5" />
               </button>
@@ -133,22 +132,22 @@ export default function Profile() {
         </div>
       </section>
 
-      {/* Admin / System */}
+      {/* System */}
       <section>
-        <h3 className="text-sm font-semibold text-zinc-900 uppercase tracking-wider mb-4">System</h3>
+        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">System</h3>
         <div className="space-y-3">
-          <button 
+          <button
             onClick={handleSeed}
             disabled={seeding}
-            className="w-full bg-white border border-zinc-200 text-zinc-700 p-4 rounded-2xl flex items-center justify-center font-medium hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-50"
+            className="w-full bg-surface-container-lowest border border-surface-container text-on-surface p-4 rounded-2xl flex items-center justify-center font-medium hover:bg-surface-container-low transition-all duration-150 shadow-sm disabled:opacity-50"
           >
-            <Database className="w-5 h-5 mr-2 text-zinc-400" />
+            <Database className="w-5 h-5 mr-2 text-outline" />
             {seeding ? 'Initialisiere...' : 'Übungskatalog initialisieren'}
           </button>
-          
-          <button 
+
+          <button
             onClick={signOut}
-            className="w-full bg-red-50 text-red-600 p-4 rounded-2xl flex items-center justify-center font-medium hover:bg-red-100 transition-colors"
+            className="w-full bg-error-container text-error p-4 rounded-2xl flex items-center justify-center font-medium hover:bg-red-100 transition-all duration-150"
           >
             <LogOut className="w-5 h-5 mr-2" />
             Abmelden
