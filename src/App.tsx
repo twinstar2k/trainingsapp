@@ -9,6 +9,7 @@ import Trainings from './pages/Trainings';
 import NewTraining from './pages/NewTraining';
 import TrainingDetail from './pages/TrainingDetail';
 import Exercises from './pages/Exercises';
+import ExerciseDetail from './pages/ExerciseDetail';
 
 const Login = () => {
   const { user, loading, signInWithGoogle } = useAuth();
@@ -17,13 +18,13 @@ const Login = () => {
   if (user) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 p-4">
-      <div className="max-w-sm w-full bg-white p-8 rounded-2xl shadow-sm border border-zinc-100 text-center">
-        <h1 className="text-2xl font-bold text-zinc-900 mb-2">Trainingsapp</h1>
-        <p className="text-zinc-500 mb-8">Logge dich ein, um dein Training zu erfassen.</p>
-        <button 
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <div className="max-w-sm w-full bg-surface-container-lowest p-8 rounded-2xl shadow-sm border border-surface-container text-center">
+        <h1 className="text-2xl font-headline font-extrabold text-on-surface mb-2">Trainingsapp</h1>
+        <p className="text-on-surface-variant mb-8">Logge dich ein, um dein Training zu erfassen.</p>
+        <button
           onClick={signInWithGoogle}
-          className="w-full bg-emerald-600 text-white font-medium py-3 rounded-xl hover:bg-emerald-700 transition-colors"
+          className="w-full h-14 bg-primary text-on-primary font-bold rounded-2xl hover:bg-primary-container transition-all duration-150 shadow-lg shadow-primary/20 active:scale-[0.97]"
         >
           Mit Google anmelden
         </button>
@@ -51,7 +52,8 @@ export default function App() {
           <Route path="/trainings" element={<ProtectedRoute><Trainings /></ProtectedRoute>} />
           <Route path="/trainings/new" element={<ProtectedRoute><NewTraining /></ProtectedRoute>} />
           <Route path="/trainings/:id" element={<ProtectedRoute><TrainingDetail /></ProtectedRoute>} />
-          <Route path="/exercises/*" element={<ProtectedRoute><Exercises /></ProtectedRoute>} />
+          <Route path="/exercises" element={<ProtectedRoute><Exercises /></ProtectedRoute>} />
+          <Route path="/exercises/:exerciseId" element={<ProtectedRoute><ExerciseDetail /></ProtectedRoute>} />
           <Route path="/weight" element={<ProtectedRoute><Weight /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         </Routes>
