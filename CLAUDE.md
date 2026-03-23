@@ -2,14 +2,19 @@
 
 Persönliche Web-App zur Erfassung und Analyse von Krafttraining.
 
+**Live:** https://mvp-app-claude.web.app
+**GitHub:** https://github.com/twinstar2k/trainingsapp
+**Firebase-Projekt:** `mvp-app-claude` (europe-west3)
+
 ## Projektkontext
 
 Lies `docs/PROJECT-CONTEXT.md` für den vollständigen fachlichen und technischen Kontext.
 
 ## Tech-Stack
 
-- **Frontend:** React 18+ mit TypeScript und Vite (mobile-first)
-- **Auth:** Firebase Authentication (Google Login)
+- **Frontend:** React 18 + TypeScript + Vite (mobile-first)
+- **Styling:** Tailwind CSS v4 mit `@tailwindcss/vite` — Config via `@theme`-Block in `src/index.css`, kein `tailwind.config.js`
+- **Auth:** Firebase Authentication (Google Login via `signInWithPopup`)
 - **Datenbank:** Cloud Firestore
 - **Hosting:** Firebase Hosting
 - **Backend:** Keins (Firestore Security Rules steuern Zugriff)
@@ -21,27 +26,55 @@ trainingsapp/
 ├── CLAUDE.md                          ← Du bist hier
 ├── docs/
 │   ├── PROJECT-CONTEXT.md             ← Fachlicher + technischer Kontext
-│   ├── agents/                        ← Agenten-Prompts für Rollenbasierte Entwicklung
+│   ├── DESIGN.md                      ← Design-System (Google Stitch Tokens)
+│   ├── agents/                        ← Agenten-Prompts für rollenbasierte Entwicklung
 │   ├── requirements/                  ← User Stories und Akzeptanzkriterien
+│   │   └── exercise-progress.md
 │   ├── architecture/                  ← Technische Designs
+│   │   └── exercise-progress.md
 │   └── qa-reports/                    ← Testberichte
 ├── src/
-│   ├── components/                    ← React-Komponenten
-│   ├── pages/                         ← Seiten / Views
-│   ├── hooks/                         ← Custom Hooks
-│   ├── context/                       ← React Context (Auth, etc.)
-│   ├── services/                      ← Firebase Service Layer
-│   ├── types/                         ← TypeScript Type Definitions
-│   └── utils/                         ← Hilfsfunktionen
-├── functions/                         ← Cloud Functions (falls benötigt)
-├── scripts/                           ← Seed-Daten, Migrationen
-├── firebase.json                      ← Firebase-Konfiguration
-├── firestore.rules                    ← Firestore Security Rules
-├── firestore.indexes.json             ← Firestore-Indizes
+│   ├── components/
+│   │   ├── layout/AppLayout.tsx       ← Bottom Navigation
+│   │   ├── ui/ConfirmDialog.tsx
+│   │   └── LastSessionLabel.tsx       ← "Zuletzt: 3×10@50kg"-Label
+│   ├── contexts/AuthContext.tsx       ← Google Auth (signInWithPopup)
+│   ├── hooks/
+│   │   ├── useExerciseProgress.ts     ← Fortschrittsdaten laden
+│   │   └── useLastSession.ts          ← Letzte Session einer Übung
+│   ├── lib/
+│   │   ├── firebase.ts                ← Firebase-Initialisierung
+│   │   ├── seed.ts                    ← Übungskatalog-Seed
+│   │   └── utils.ts                   ← cn() Hilfsfunktion
+│   ├── pages/
+│   │   ├── Dashboard.tsx
+│   │   ├── Trainings.tsx
+│   │   ├── TrainingDetail.tsx         ← Sätze erfassen, Übung antippbar
+│   │   ├── NewTraining.tsx
+│   │   ├── ExerciseDetail.tsx         ← Fortschrittschart + Summary
+│   │   ├── Exercises.tsx
+│   │   ├── Weight.tsx
+│   │   └── Profile.tsx
+│   ├── types/index.ts                 ← Alle TypeScript-Typen
+│   ├── utils/metrics.ts               ← Epley 1RM, Volumen, Label-Formatierung
+│   └── App.tsx                        ← Router + ProtectedRoute
+├── firebase.json
+├── firestore.rules
+├── firestore.indexes.json             ← Composite Indexes (status+date, status+studioId+date)
+├── index.html                         ← Google Fonts via <link> (nicht CSS @import!)
+├── vite.config.ts                     ← COOP-Header für Auth-Popup
 ├── package.json
-├── tsconfig.json
-└── vite.config.ts
+└── tsconfig.json
 ```
+
+## Implementierter Funktionsumfang (Stand 2026-03-23)
+
+- Google Login (signInWithPopup)
+- Studio-Verwaltung pro User
+- Übungskatalog (global, 50 Übungen, Seed via Profil-Seite)
+- Training anlegen, Übungen + Sätze erfassen, abschließen
+- Körpergewicht-Historie mit Verlauf-Chart
+- **Exercise Progress:** Übungsdetail-Seite mit Linienchart (Max-Gewicht / Volumen / 1RM), "Zuletzt"-Label im aktiven Training
 
 ## Agenten-Workflow
 
@@ -57,23 +90,41 @@ Dann: [Aufgabe beschreiben]
 
 - TypeScript strict mode
 - Functional Components mit expliziten Props-Interfaces
-- CSS-Klassen statt Inline-Styles
+- CSS-Klassen statt Inline-Styles (Tailwind)
 - Hooks am Anfang der Komponente
 - Jede Komponente hat Loading- und Error-State
 - Keine console.log im finalen Code
 - Mobile-first Responsive Design
+
+## Tailwind-Besonderheiten
+
+- **Version 4** — kein `tailwind.config.js`, Config ausschließlich via `@theme { }` in `src/index.css`
+- **Google Fonts:** Müssen via `<link>` in `index.html` geladen werden — `@import url()` in CSS funktioniert in Vite dev nicht
+- **Design Tokens:** `bg-primary`, `text-on-surface`, `bg-surface-container-lowest` etc. — alle in `src/index.css` definiert
 
 ## Firebase-Konventionen
 
 - Security Rules: deny-by-default, jede Collection muss abgedeckt sein
 - Dokument-IDs: Auto-ID für user-generierte Daten, sprechende IDs für Stammdaten
 - Subcollections für user-gebundene Daten unter `users/{uid}/`
-- Globale Daten (Übungskatalog) in Top-Level-Collections
+- Globale Daten (Übungskatalog) in Top-Level-Collection `exercises`
+- Neue Firestore-Indizes in `firestore.indexes.json` eintragen und mit `firebase deploy --only firestore:indexes` deployen
 
 ## Wichtige Geschäftsregeln
 
-- **context_dependent-Flag:** Maschinen-/Seilzugübungen werden nur innerhalb desselben Studios verglichen
+- **context_dependent-Flag:** Maschinen-/Seilzugübungen nur innerhalb desselben Studios vergleichen
+- **Exercise Progress:** Zweistufige Query (Trainings → exercises → sets), max. 20 Sessions, kein Zeitraum-Filter im MVP
+- **1RM (Epley):** `weight × (1 + reps / 30)`, nur gültig für reps ≤ 15
+- **Standard-Metrik:** Max-Gewicht (nicht 1RM)
 - **Templates sind flexibel:** Übungen dürfen abweichen, kein starres Korsett
 - **Übungskatalog ist global:** Nur Admin kann Übungen hinzufügen
 - **Studios sind pro User:** Jeder User pflegt eigene Studios
 - **Gewichtshistorie:** Neue Einträge ergänzen, nie überschreiben
+
+## Deploy
+
+```bash
+npm run build && firebase deploy --only hosting       # App deployen
+firebase deploy --only firestore:indexes              # Indizes deployen
+firebase deploy --only firestore:rules                # Rules deployen
+```
