@@ -141,6 +141,6 @@ Nightly Firestore-Dump in eigenes privates Repo `twinstar2k/trainingsapp-backup`
 
 - **Lokales Projekt:** `/Users/josef/Projekte/trainingsapp-backup/` (eigenes Node-Projekt mit `firebase-admin`, nicht Teil dieses Repos)
 - **Service-Account-Key:** `~/.config/trainingsapp-backup/service-account.json` (Permissions 0600, in `.gitignore`)
-- **Cron:** täglich 03:00 → `run-backup.sh` dumpt nach `data/backup.json` und committet/pusht bei Änderungen
+- **Cron:** täglich 20:00 → `run-backup.sh` dumpt nach `data/backup.json` und committet/pusht bei Änderungen (tagsüber gewählt, weil cron im Ruhezustand schweigt und der Mac nicht aufgeweckt werden soll)
 - **Manueller Trigger:** `./run-backup.sh` im Backup-Projekt
 - **Zusätzlich:** clientseitiger JSON-Export-Button im Profil (`src/lib/export.ts`)
