@@ -197,6 +197,8 @@ export default function TrainingDetail() {
   if (loading) return <div className="text-center py-12 text-on-surface-variant">Lade Training...</div>;
   if (!training) return <div className="text-center py-12 text-on-surface-variant">Training nicht gefunden.</div>;
 
+  const isActive = training.status === 'active';
+
   const filteredCatalog = catalog.filter(ex =>
     ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ex.muscleGroup.toLowerCase().includes(searchQuery.toLowerCase())
@@ -263,12 +265,14 @@ export default function TrainingDetail() {
                   )}
                 </div>
               </div>
-              <button
-                onClick={() => handleDeleteExercise(ex.id)}
-                className="text-outline hover:text-error p-2 -mr-2 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {isActive && (
+                <button
+                  onClick={() => handleDeleteExercise(ex.id)}
+                  className="text-outline hover:text-error p-2 -mr-2 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             <div className="p-4 space-y-3">
@@ -310,14 +314,16 @@ export default function TrainingDetail() {
                         type="number"
                         value={set.weight || ''}
                         onChange={(e) => handleUpdateSet(ex.id, exIndex, set.id, setIndex, 'weight', parseFloat(e.target.value) || 0)}
-                        className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        disabled={!isActive}
+                        className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="0"
                       />
                       <input
                         type="number"
                         value={set.reps || ''}
                         onChange={(e) => handleUpdateSet(ex.id, exIndex, set.id, setIndex, 'reps', parseInt(e.target.value) || 0)}
-                        className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        disabled={!isActive}
+                        className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="0"
                       />
                     </>
@@ -328,7 +334,8 @@ export default function TrainingDetail() {
                       type="number"
                       value={set.reps || ''}
                       onChange={(e) => handleUpdateSet(ex.id, exIndex, set.id, setIndex, 'reps', parseInt(e.target.value) || 0)}
-                      className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      disabled={!isActive}
+                      className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
                       placeholder="0"
                     />
                   )}
@@ -339,7 +346,8 @@ export default function TrainingDetail() {
                         type="number"
                         value={set.duration || ''}
                         onChange={(e) => handleUpdateSet(ex.id, exIndex, set.id, setIndex, 'duration', parseInt(e.target.value) || 0)}
-                        className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        disabled={!isActive}
+                        className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="0"
                       />
                       <input
@@ -347,7 +355,8 @@ export default function TrainingDetail() {
                         step="0.1"
                         value={set.distance || ''}
                         onChange={(e) => handleUpdateSet(ex.id, exIndex, set.id, setIndex, 'distance', parseFloat(e.target.value) || 0)}
-                        className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        disabled={!isActive}
+                        className="flex-1 min-w-0 bg-surface-container-lowest ring-1 ring-outline-variant/30 rounded-xl px-2 py-1.5 text-center font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="0"
                       />
                     </>
@@ -355,42 +364,49 @@ export default function TrainingDetail() {
 
                   <button
                     onClick={() => toggleSetStatus(ex.id, exIndex, set.id, setIndex)}
+                    disabled={!isActive}
                     className={cn(
-                      "w-10 h-10 flex items-center justify-center rounded-xl transition-colors duration-150",
+                      "w-10 h-10 flex items-center justify-center rounded-xl transition-colors duration-150 disabled:cursor-not-allowed",
                       set.status === 'done' ? "text-primary" : "text-outline hover:text-on-surface-variant"
                     )}
                   >
                     {set.status === 'done' ? <CheckCircle2 className="w-7 h-7" /> : <Circle className="w-7 h-7" />}
                   </button>
-                  <button
-                    onClick={() => handleDeleteSet(ex.id, exIndex, set.id)}
-                    className="w-10 h-10 flex items-center justify-center rounded-xl text-outline hover:text-error transition-colors duration-150"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {isActive && (
+                    <button
+                      onClick={() => handleDeleteSet(ex.id, exIndex, set.id)}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl text-outline hover:text-error transition-colors duration-150"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               ))}
 
-              <button
-                onClick={() => handleAddSet(ex.id, exIndex)}
-                className="w-full py-2.5 border-2 border-dashed border-surface-container rounded-xl text-on-surface-variant font-medium text-sm flex items-center justify-center hover:border-primary/20 hover:text-primary transition-all duration-150 mt-2"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Satz hinzufügen
-              </button>
+              {isActive && (
+                <button
+                  onClick={() => handleAddSet(ex.id, exIndex)}
+                  className="w-full py-2.5 border-2 border-dashed border-surface-container rounded-xl text-on-surface-variant font-medium text-sm flex items-center justify-center hover:border-primary/20 hover:text-primary transition-all duration-150 mt-2"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Satz hinzufügen
+                </button>
+              )}
             </div>
           </div>
         ))}
       </div>
 
       {/* Add Exercise */}
-      <button
-        onClick={() => setShowCatalog(true)}
-        className="w-full bg-surface-container-lowest border border-surface-container text-on-surface p-4 rounded-2xl flex items-center justify-center font-bold hover:bg-surface-container-low hover:border-primary/20 transition-all duration-150 shadow-sm"
-      >
-        <Plus className="w-5 h-5 mr-2 text-primary" />
-        Übung hinzufügen
-      </button>
+      {isActive && (
+        <button
+          onClick={() => setShowCatalog(true)}
+          className="w-full bg-surface-container-lowest border border-surface-container text-on-surface p-4 rounded-2xl flex items-center justify-center font-bold hover:bg-surface-container-low hover:border-primary/20 transition-all duration-150 shadow-sm"
+        >
+          <Plus className="w-5 h-5 mr-2 text-primary" />
+          Übung hinzufügen
+        </button>
+      )}
 
       {/* Complete Training */}
       {exercises.length > 0 && (

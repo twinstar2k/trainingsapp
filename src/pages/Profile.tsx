@@ -4,7 +4,8 @@ import { seedExercises } from '../lib/seed';
 import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Studio } from '../types';
-import { Trash2, Plus, LogOut, Database } from 'lucide-react';
+import { Trash2, Plus, LogOut, Database, Download } from 'lucide-react';
+import { exportAllUserData, downloadBackup } from '../lib/export';
 
 export default function Profile() {
   const { user, signOut } = useAuth();
@@ -12,6 +13,7 @@ export default function Profile() {
   const [newStudioName, setNewStudioName] = useState('');
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!user || !db) return;
@@ -61,6 +63,20 @@ export default function Profile() {
       setStudios(studios.filter(s => s.id !== id));
     } catch (error) {
       console.error("Error deleting studio:", error);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!user) return;
+    setExporting(true);
+    try {
+      const payload = await exportAllUserData(user.uid);
+      downloadBackup(payload);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      alert('Export fehlgeschlagen. Details in der Konsole.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -136,6 +152,15 @@ export default function Profile() {
       <section>
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">System</h3>
         <div className="space-y-3">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="w-full bg-surface-container-lowest border border-surface-container text-on-surface p-4 rounded-2xl flex items-center justify-center font-medium hover:bg-surface-container-low transition-all duration-150 shadow-sm disabled:opacity-50"
+          >
+            <Download className="w-5 h-5 mr-2 text-outline" />
+            {exporting ? 'Exportiere...' : 'Alle Daten exportieren (JSON)'}
+          </button>
+
           <button
             onClick={handleSeed}
             disabled={seeding}

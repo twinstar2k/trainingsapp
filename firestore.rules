@@ -3,17 +3,58 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
+    // Globaler Übungskatalog: für eingeloggte User lesbar.
+    // Anlegen erlaubt mit Feld-Validierung; Update/Delete nur über Admin/Console.
+    match /exercises/{exerciseId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['id', 'name', 'type', 'muscleGroup', 'contextDependent'])
+        && request.resource.data.id is string
+        && request.resource.data.id == exerciseId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.type in ['weighted', 'reps_only', 'cardio_basic']
+        && request.resource.data.muscleGroup is string
+        && request.resource.data.muscleGroup.size() > 0
+        && request.resource.data.muscleGroup.size() <= 50
+        && request.resource.data.contextDependent is bool;
+      allow update, delete: if false;
+    }
+
+    // User-eigene Daten: ausschließlich der jeweilige User darf lesen/schreiben.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /studios/{studioId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /weightHistory/{entryId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /templates/{templateId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Trainings inkl. verschachtelter Übungen und Sätze.
+      match /trainings/{trainingId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        match /exercises/{trainingExerciseId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+
+          match /sets/{setId} {
+            allow read, write: if request.auth != null && request.auth.uid == userId;
+          }
+        }
+      }
+    }
+
+    // Deny-by-default: alles, was hier nicht explizit erlaubt ist, ist gesperrt.
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 4, 7);
+      allow read, write: if false;
     }
   }
 }

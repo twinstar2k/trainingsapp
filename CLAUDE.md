@@ -45,6 +45,7 @@ trainingsapp/
 │   ├── lib/
 │   │   ├── firebase.ts                ← Firebase-Initialisierung
 │   │   ├── seed.ts                    ← Übungskatalog-Seed
+│   │   ├── export.ts                  ← Client-seitiger JSON-Export aller Userdaten
 │   │   └── utils.ts                   ← cn() Hilfsfunktion
 │   ├── pages/
 │   │   ├── Dashboard.tsx
@@ -67,14 +68,19 @@ trainingsapp/
 └── tsconfig.json
 ```
 
-## Implementierter Funktionsumfang (Stand 2026-03-23)
+## Implementierter Funktionsumfang (Stand 2026-04-08)
 
 - Google Login (signInWithPopup)
 - Studio-Verwaltung pro User
-- Übungskatalog (global, 50 Übungen, Seed via Profil-Seite)
+- Übungskatalog (global, 50 Übungen Seed + clientseitig erweiterbar via „Neue Übung" auf Exercises-Seite)
 - Training anlegen, Übungen + Sätze erfassen, abschließen
+- **Edit-Lock:** Abgeschlossene Trainings sind read-only — alle Edit-Affordances (Übung/Satz hinzufügen, löschen, Inputs, Toggles) erst nach „Training wieder öffnen" verfügbar
 - Körpergewicht-Historie mit Verlauf-Chart
-- **Exercise Progress:** Übungsdetail-Seite mit Linienchart (Max-Gewicht / Volumen / 1RM), "Zuletzt"-Label im aktiven Training
+- **Exercise Progress:**
+  - `weighted`: Max-Gewicht / Volumen / 1RM (kg)
+  - `reps_only`: Max. Wdh / Gesamt Wdh (Wdh) — für Bodyweight-Übungen wie Beinheben
+  - „Zuletzt"-Label im aktiven Training
+- **Daten-Export:** Button im Profil → JSON-Dump aller Userdaten (`src/lib/export.ts`)
 
 ## Agenten-Workflow
 
@@ -128,3 +134,13 @@ npm run build && firebase deploy --only hosting       # App deployen
 firebase deploy --only firestore:indexes              # Indizes deployen
 firebase deploy --only firestore:rules                # Rules deployen
 ```
+
+## Backup
+
+Nightly Firestore-Dump in eigenes privates Repo `twinstar2k/trainingsapp-backup`:
+
+- **Lokales Projekt:** `/Users/josef/Projekte/trainingsapp-backup/` (eigenes Node-Projekt mit `firebase-admin`, nicht Teil dieses Repos)
+- **Service-Account-Key:** `~/.config/trainingsapp-backup/service-account.json` (Permissions 0600, in `.gitignore`)
+- **Cron:** täglich 03:00 → `run-backup.sh` dumpt nach `data/backup.json` und committet/pusht bei Änderungen
+- **Manueller Trigger:** `./run-backup.sh` im Backup-Projekt
+- **Zusätzlich:** clientseitiger JSON-Export-Button im Profil (`src/lib/export.ts`)

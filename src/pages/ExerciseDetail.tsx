@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
-import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { Exercise, Training } from '../types';
+import { doc, getDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { Exercise } from '../types';
 import { useExerciseProgress, SessionProgress } from '../hooks/useExerciseProgress';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -12,18 +12,28 @@ import {
 } from 'recharts';
 import { ChevronLeft, TrendingUp } from 'lucide-react';
 
-type Metric = 'maxWeight' | 'volume' | 'oneRM';
+type Metric = 'maxWeight' | 'volume' | 'oneRM' | 'maxReps' | 'totalReps';
 
 const METRIC_LABELS: Record<Metric, string> = {
   maxWeight: 'Max-Gewicht',
   volume: 'Volumen',
   oneRM: '1RM',
+  maxReps: 'Max. Wdh',
+  totalReps: 'Gesamt Wdh',
 };
 
 const METRIC_UNIT: Record<Metric, string> = {
   maxWeight: 'kg',
   volume: 'kg',
   oneRM: 'kg',
+  maxReps: 'Wdh',
+  totalReps: 'Wdh',
+};
+
+const METRICS_BY_TYPE: Record<Exercise['type'], Metric[]> = {
+  weighted: ['maxWeight', 'volume', 'oneRM'],
+  reps_only: ['maxReps', 'totalReps'],
+  cardio_basic: [],
 };
 
 function metricValue(session: SessionProgress, metric: Metric): number | null {
@@ -31,6 +41,8 @@ function metricValue(session: SessionProgress, metric: Metric): number | null {
     case 'maxWeight': return session.maxWeight || null;
     case 'volume': return session.volume || null;
     case 'oneRM': return session.best1RM;
+    case 'maxReps': return session.maxReps || null;
+    case 'totalReps': return session.totalReps || null;
   }
 }
 
@@ -61,6 +73,15 @@ export default function ExerciseDetail() {
     };
     load();
   }, [exerciseId]);
+
+  // Switch default metric when exercise type changes
+  useEffect(() => {
+    if (!exercise) return;
+    const available = METRICS_BY_TYPE[exercise.type];
+    if (available.length > 0 && !available.includes(activeMetric)) {
+      setActiveMetric(available[0]);
+    }
+  }, [exercise]);
 
   // Determine current studioId from most recent training
   useEffect(() => {
@@ -103,6 +124,15 @@ export default function ExerciseDetail() {
       </div>
     );
   }
+
+  const availableMetrics = METRICS_BY_TYPE[exercise.type];
+  const unit = METRIC_UNIT[activeMetric];
+  const isRepsMetric = activeMetric === 'maxReps' || activeMetric === 'totalReps';
+
+  const formatValue = (value: number | null | undefined): string => {
+    if (value == null) return '—';
+    return `${Math.round(value)} ${unit}`;
+  };
 
   const chartSessions = sessions.filter(s => metricValue(s, activeMetric) !== null);
   const chartData = chartSessions.map(s => ({
@@ -157,11 +187,7 @@ export default function ExerciseDetail() {
             {allTimeSession && (
               <>
                 <p className="text-xl font-headline font-extrabold text-on-surface">
-                  {activeMetric === 'volume'
-                    ? `${Math.round(metricValue(allTimeSession, 'volume') ?? 0)} kg`
-                    : activeMetric === 'oneRM'
-                    ? `${Math.round(metricValue(allTimeSession, 'oneRM') ?? 0)} kg`
-                    : `${metricValue(allTimeSession, 'maxWeight')} kg`}
+                  {formatValue(metricValue(allTimeSession, activeMetric))}
                 </p>
                 <p className="text-xs text-outline mt-1">
                   {format(parseISO(allTimeSession.date), 'dd. MMM yyyy', { locale: de })}
@@ -177,21 +203,21 @@ export default function ExerciseDetail() {
             {lastSession && (
               <>
                 <p className="text-xl font-headline font-extrabold text-on-surface">
-                  {activeMetric === 'volume'
-                    ? `${Math.round(sessionVolumeFn(lastSession))} kg`
-                    : activeMetric === 'oneRM'
-                    ? lastSession.best1RM != null
-                      ? `${Math.round(lastSession.best1RM)} kg`
-                      : '—'
-                    : `${lastSession.maxWeight} kg`}
+                  {formatValue(metricValue(lastSession, activeMetric))}
                 </p>
                 <p className="text-xs text-outline mt-1">
                   {format(parseISO(lastSession.date), 'dd. MMM yyyy', { locale: de })}
                 </p>
-                {lastSession.bestSet && (
+                {isRepsMetric ? (
                   <p className="text-xs text-on-surface-variant mt-0.5">
-                    {lastSession.allSets.filter(s => s.weight != null).length} Sätze · {lastSession.bestSet.reps} Wdh @ {lastSession.bestSet.weight} kg
+                    {lastSession.allSets.filter(s => s.reps != null && s.reps > 0).length} Sätze · max. {lastSession.maxReps} Wdh
                   </p>
+                ) : (
+                  lastSession.bestSet && (
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      {lastSession.allSets.filter(s => s.weight != null).length} Sätze · {lastSession.bestSet.reps} Wdh @ {lastSession.bestSet.weight} kg
+                    </p>
+                  )
                 )}
               </>
             )}
@@ -200,9 +226,9 @@ export default function ExerciseDetail() {
       )}
 
       {/* Metric Tabs */}
-      {exercise.type !== 'reps_only' && (
+      {availableMetrics.length > 1 && (
         <div className="flex gap-2">
-          {(Object.keys(METRIC_LABELS) as Metric[]).map(metric => (
+          {availableMetrics.map(metric => (
             <button
               key={metric}
               onClick={() => setActiveMetric(metric)}
@@ -221,7 +247,7 @@ export default function ExerciseDetail() {
       {/* Chart */}
       <div className="bg-surface-container-lowest rounded-2xl border border-surface-container p-4 shadow-sm">
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">
-          Verlauf · {exercise.type === 'reps_only' ? 'Max. Wdh' : METRIC_LABELS[activeMetric]}
+          Verlauf · {METRIC_LABELS[activeMetric]}
         </h3>
 
         {loading ? (
@@ -260,10 +286,10 @@ export default function ExerciseDetail() {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 11, fill: '#6d7a72' }}
-                    unit=" kg"
+                    unit={` ${unit}`}
                   />
                   <Tooltip
-                    formatter={(value: number) => [`${Math.round(value)} ${METRIC_UNIT[activeMetric]}`, METRIC_LABELS[activeMetric]]}
+                    formatter={(value: number) => [`${Math.round(value)} ${unit}`, METRIC_LABELS[activeMetric]]}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     labelStyle={{ color: '#3d4a42', fontSize: '12px', marginBottom: '4px' }}
                     itemStyle={{ color: '#059669', fontWeight: 600 }}
@@ -290,9 +316,4 @@ export default function ExerciseDetail() {
       </div>
     </div>
   );
-}
-
-// Helper to avoid importing metrics in JSX
-function sessionVolumeFn(s: SessionProgress): number {
-  return s.volume;
 }

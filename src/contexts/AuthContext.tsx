@@ -31,21 +31,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      
-      if (currentUser && db) {
-        // Ensure user document exists
-        const userRef = doc(db, 'users', currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            name: currentUser.displayName || '',
-            email: currentUser.email || '',
-            createdAt: Date.now(),
-          });
+
+      try {
+        if (currentUser && db) {
+          // Ensure user document exists
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              name: currentUser.displayName || '',
+              email: currentUser.email || '',
+              createdAt: Date.now(),
+            });
+          }
         }
+      } catch (error) {
+        console.error('Error ensuring user document', error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
     return () => unsubscribe();

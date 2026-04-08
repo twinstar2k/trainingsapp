@@ -5,7 +5,7 @@ import {
   collection, query, where, orderBy, limit,
   getDocs, Query, DocumentData
 } from 'firebase/firestore';
-import { bestSessionOneRM, sessionMaxWeight, sessionVolume } from '../utils/metrics';
+import { bestSessionOneRM, sessionMaxReps, sessionMaxWeight, sessionTotalReps, sessionVolume } from '../utils/metrics';
 
 export interface SessionProgress {
   trainingId: string;
@@ -14,6 +14,8 @@ export interface SessionProgress {
   maxWeight: number;
   volume: number;
   best1RM: number | null;
+  maxReps: number;
+  totalReps: number;
   bestSet: { reps: number; weight: number } | null;
   allSets: Array<{ reps?: number; weight?: number }>;
 }
@@ -91,6 +93,8 @@ export function useExerciseProgress(
             const maxWeight = sessionMaxWeight(sets);
             const volume = sessionVolume(sets);
             const best1RM = bestSessionOneRM(sets);
+            const maxReps = sessionMaxReps(sets);
+            const totalReps = sessionTotalReps(sets);
 
             // Best set: highest weight among completed sets
             const weightedSets = sets.filter(s => s.weight != null && s.reps != null);
@@ -108,6 +112,8 @@ export function useExerciseProgress(
               maxWeight,
               volume,
               best1RM,
+              maxReps,
+              totalReps,
               bestSet,
               allSets: sets,
             });

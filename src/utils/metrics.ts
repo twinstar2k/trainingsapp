@@ -53,6 +53,11 @@ export function sessionMaxReps(sets: SetData[]): number {
   }, 0);
 }
 
+/** Total reps summed across all sets in a session. */
+export function sessionTotalReps(sets: SetData[]): number {
+  return sets.reduce((sum, s) => sum + (s.reps ?? 0), 0);
+}
+
 /**
  * Formats the set structure of a session as a human-readable label.
  *
