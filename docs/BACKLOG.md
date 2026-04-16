@@ -19,6 +19,7 @@ Lose Sammlung von Ideen und „Nice to have"-Punkten. Keine Verpflichtung, keine
 - **Übungen bearbeiten/löschen:** Aktuell nur `create` möglich – ein Tippfehler im Übungsnamen bleibt für immer im Katalog. Update/Delete wäre sinnvoll, aber muss wg. global geteiltem Katalog vorsichtig (Ownership-Feld?) gemacht werden.
 - **Datenimport:** Pendant zum JSON-Export – aus einem Backup wieder in Firestore zurückspielen. Aktuell nur per Hand über Console oder ad-hoc Admin-SDK-Script.
 - **PWA-Installation:** Manifest + Service Worker → „Zum Home-Bildschirm hinzufügen" auf dem Handy, Offline-Fallback.
+- **`completedAt`-Timestamp:** Aktuell kennt das Datenmodell nur `status`, kein Abschluss-Datum. Folge: Re-Open + erneutes Abschließen erhöht die Celebration-Zählung doppelt und es gibt keine harte Info, *wann* ein Training abgeschlossen wurde. Vorschlag: `completedAt` beim ersten Übergang auf `completed` setzen (nur wenn leer). Ermöglicht korrekte Zählung und Auswertungen wie „Abschlüsse pro Woche".
 
 ## Verbesserungen
 

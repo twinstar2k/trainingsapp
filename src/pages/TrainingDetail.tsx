@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, getDocs, doc, getDoc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, where, getDocs, getCountFromServer, doc, getDoc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { Training, TrainingExercise, TrainingSet, Exercise } from '../types';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
@@ -9,6 +9,7 @@ import { de } from 'date-fns/locale';
 import { Check, Plus, Trash2, X, Search, CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { CompletionCelebration } from '../components/ui/CompletionCelebration';
 import { LastSessionLabel } from '../components/LastSessionLabel';
 
 export default function TrainingDetail() {
@@ -25,6 +26,8 @@ export default function TrainingDetail() {
   const [showCatalog, setShowCatalog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteTraining, setShowDeleteTraining] = useState(false);
+  const [celebrationNumber, setCelebrationNumber] = useState<number | undefined>(undefined);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
     if (!user || !db || !id) return;
@@ -178,10 +181,25 @@ export default function TrainingDetail() {
     try {
       await updateDoc(doc(db, 'users', user.uid, 'trainings', id), { status: newStatus });
       setTraining({ ...training, status: newStatus });
-      if (newStatus === 'completed') navigate('/trainings');
+      if (newStatus === 'completed') {
+        setCelebrationNumber(undefined);
+        setShowCelebration(true);
+        const completedQ = query(
+          collection(db, 'users', user.uid, 'trainings'),
+          where('status', '==', 'completed'),
+        );
+        getCountFromServer(completedQ)
+          .then((snap) => setCelebrationNumber(snap.data().count))
+          .catch(() => { /* leave number undefined on failure */ });
+      }
     } catch (error) {
       console.error("Error updating training status:", error);
     }
+  };
+
+  const handleCelebrationClose = () => {
+    setShowCelebration(false);
+    navigate('/trainings');
   };
 
   const handleDeleteTraining = async () => {
@@ -485,6 +503,12 @@ export default function TrainingDetail() {
         message="Möchtest du dieses Training wirklich löschen? Alle Übungen und Sätze werden unwiderruflich entfernt."
         onConfirm={handleDeleteTraining}
         onCancel={() => setShowDeleteTraining(false)}
+      />
+
+      <CompletionCelebration
+        isOpen={showCelebration}
+        trainingNumber={celebrationNumber}
+        onClose={handleCelebrationClose}
       />
     </div>
   );
