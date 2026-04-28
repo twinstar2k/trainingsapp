@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Manuelle Daten-Exports (enthalten personenbezogene Daten — gehören ins separate trainingsapp-backup-Projekt)
+backup/
+*.backup.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
