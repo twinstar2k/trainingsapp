@@ -11,8 +11,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ChevronLeft, TrendingUp } from 'lucide-react';
+import { formatPace } from '../utils/metrics';
 
-type Metric = 'maxWeight' | 'volume' | 'oneRM' | 'maxReps' | 'totalReps';
+type Metric = 'maxWeight' | 'volume' | 'oneRM' | 'maxReps' | 'totalReps' | 'duration' | 'distance' | 'pace';
 
 const METRIC_LABELS: Record<Metric, string> = {
   maxWeight: 'Max-Gewicht',
@@ -20,6 +21,9 @@ const METRIC_LABELS: Record<Metric, string> = {
   oneRM: '1RM',
   maxReps: 'Max. Wdh',
   totalReps: 'Gesamt Wdh',
+  duration: 'Dauer',
+  distance: 'Distanz',
+  pace: 'Pace',
 };
 
 const METRIC_UNIT: Record<Metric, string> = {
@@ -28,12 +32,15 @@ const METRIC_UNIT: Record<Metric, string> = {
   oneRM: 'kg',
   maxReps: 'Wdh',
   totalReps: 'Wdh',
+  duration: 'min',
+  distance: 'km',
+  pace: 'min/km',
 };
 
 const METRICS_BY_TYPE: Record<Exercise['type'], Metric[]> = {
   weighted: ['maxWeight', 'volume', 'oneRM'],
   reps_only: ['maxReps', 'totalReps'],
-  cardio_basic: [],
+  cardio_basic: ['distance', 'duration', 'pace'],
 };
 
 function metricValue(session: SessionProgress, metric: Metric): number | null {
@@ -43,6 +50,9 @@ function metricValue(session: SessionProgress, metric: Metric): number | null {
     case 'oneRM': return session.best1RM;
     case 'maxReps': return session.maxReps || null;
     case 'totalReps': return session.totalReps || null;
+    case 'duration': return session.totalDuration || null;
+    case 'distance': return session.totalDistance || null;
+    case 'pace': return session.pace;
   }
 }
 
@@ -125,12 +135,22 @@ export default function ExerciseDetail() {
     );
   }
 
-  const availableMetrics = METRICS_BY_TYPE[exercise.type];
-  const unit = METRIC_UNIT[activeMetric];
+  const isCardio = exercise.type === 'cardio_basic';
   const isRepsMetric = activeMetric === 'maxReps' || activeMetric === 'totalReps';
+  const isPaceMetric = activeMetric === 'pace';
+  const lowerIsBetter = isPaceMetric;
+  const hasAnyDistance = sessions.some(s => s.totalDistance > 0);
+  const availableMetrics = METRICS_BY_TYPE[exercise.type].filter(
+    m => m !== 'pace' || hasAnyDistance
+  );
+  const unit = METRIC_UNIT[activeMetric];
 
   const formatValue = (value: number | null | undefined): string => {
     if (value == null) return '—';
+    if (activeMetric === 'pace') return `${formatPace(value)} ${unit}`;
+    if (activeMetric === 'distance') {
+      return `${value.toFixed(value < 10 ? 1 : 0)} ${unit}`;
+    }
     return `${Math.round(value)} ${unit}`;
   };
 
@@ -141,10 +161,12 @@ export default function ExerciseDetail() {
   }));
 
   const allTimeSession = sessions.reduce<SessionProgress | null>((best, s) => {
+    const sv = metricValue(s, activeMetric);
+    if (sv == null) return best;
     if (!best) return s;
-    const bv = metricValue(best, activeMetric) ?? 0;
-    const sv = metricValue(s, activeMetric) ?? 0;
-    return sv > bv ? s : best;
+    const bv = metricValue(best, activeMetric);
+    if (bv == null) return s;
+    return (lowerIsBetter ? sv < bv : sv > bv) ? s : best;
   }, null);
 
   const lastSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
@@ -182,7 +204,7 @@ export default function ExerciseDetail() {
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-surface-container-lowest rounded-2xl border border-surface-container p-4 shadow-sm">
             <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
-              Bestes je
+              {lowerIsBetter ? 'Schnellstes je' : 'Bestes je'}
             </p>
             {allTimeSession && (
               <>
@@ -208,7 +230,15 @@ export default function ExerciseDetail() {
                 <p className="text-xs text-outline mt-1">
                   {format(parseISO(lastSession.date), 'dd. MMM yyyy', { locale: de })}
                 </p>
-                {isRepsMetric ? (
+                {isCardio ? (
+                  (lastSession.totalDuration > 0 || lastSession.totalDistance > 0) && (
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      {Math.round(lastSession.totalDuration)} min
+                      {lastSession.totalDistance > 0 && ` · ${lastSession.totalDistance.toFixed(lastSession.totalDistance < 10 ? 1 : 0)} km`}
+                      {lastSession.pace != null && ` · ${formatPace(lastSession.pace)} min/km`}
+                    </p>
+                  )
+                ) : isRepsMetric ? (
                   <p className="text-xs text-on-surface-variant mt-0.5">
                     {lastSession.allSets.filter(s => s.reps != null && s.reps > 0).length} Sätze · max. {lastSession.maxReps} Wdh
                   </p>
@@ -286,10 +316,12 @@ export default function ExerciseDetail() {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 11, fill: '#6d7a72' }}
-                    unit={` ${unit}`}
+                    reversed={isPaceMetric}
+                    tickFormatter={isPaceMetric ? (v: number) => formatPace(v) : undefined}
+                    unit={isPaceMetric ? undefined : ` ${unit}`}
                   />
                   <Tooltip
-                    formatter={(value: number) => [`${Math.round(value)} ${unit}`, METRIC_LABELS[activeMetric]]}
+                    formatter={(value: number) => [formatValue(value), METRIC_LABELS[activeMetric]]}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     labelStyle={{ color: '#3d4a42', fontSize: '12px', marginBottom: '4px' }}
                     itemStyle={{ color: '#059669', fontWeight: 600 }}

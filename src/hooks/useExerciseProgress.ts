@@ -5,7 +5,16 @@ import {
   collection, query, where, orderBy, limit,
   getDocs, Query, DocumentData
 } from 'firebase/firestore';
-import { bestSessionOneRM, sessionMaxReps, sessionMaxWeight, sessionTotalReps, sessionVolume } from '../utils/metrics';
+import {
+  bestSessionOneRM,
+  sessionMaxReps,
+  sessionMaxWeight,
+  sessionPace,
+  sessionTotalDistance,
+  sessionTotalDuration,
+  sessionTotalReps,
+  sessionVolume,
+} from '../utils/metrics';
 
 export interface SessionProgress {
   trainingId: string;
@@ -16,8 +25,11 @@ export interface SessionProgress {
   best1RM: number | null;
   maxReps: number;
   totalReps: number;
+  totalDuration: number; // minutes
+  totalDistance: number; // km
+  pace: number | null; // decimal min/km
   bestSet: { reps: number; weight: number } | null;
-  allSets: Array<{ reps?: number; weight?: number }>;
+  allSets: Array<{ reps?: number; weight?: number; duration?: number; distance?: number }>;
 }
 
 export function useExerciseProgress(
@@ -86,6 +98,8 @@ export function useExerciseProgress(
             const sets = setsSnap.docs.map(d => ({
               reps: d.data().reps as number | undefined,
               weight: d.data().weight as number | undefined,
+              duration: d.data().duration as number | undefined,
+              distance: d.data().distance as number | undefined,
             }));
 
             if (sets.length === 0) return;
@@ -95,6 +109,9 @@ export function useExerciseProgress(
             const best1RM = bestSessionOneRM(sets);
             const maxReps = sessionMaxReps(sets);
             const totalReps = sessionTotalReps(sets);
+            const totalDuration = sessionTotalDuration(sets);
+            const totalDistance = sessionTotalDistance(sets);
+            const pace = sessionPace(sets);
 
             // Best set: highest weight among completed sets
             const weightedSets = sets.filter(s => s.weight != null && s.reps != null);
@@ -114,6 +131,9 @@ export function useExerciseProgress(
               best1RM,
               maxReps,
               totalReps,
+              totalDuration,
+              totalDistance,
+              pace,
               bestSet,
               allSets: sets,
             });

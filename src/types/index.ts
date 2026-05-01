@@ -24,7 +24,7 @@ export interface TrainingSet {
   id: string;
   reps?: number;
   weight?: number;
-  duration?: number; // in seconds
+  duration?: number; // in minutes
   distance?: number; // in km
   status: 'open' | 'done';
   order: number;

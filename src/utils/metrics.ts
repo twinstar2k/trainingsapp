@@ -11,6 +11,8 @@ export function calculate1RM(weight: number, reps: number): number | null {
 export interface SetData {
   reps?: number;
   weight?: number;
+  duration?: number; // minutes
+  distance?: number; // km
 }
 
 /**
@@ -56,6 +58,35 @@ export function sessionMaxReps(sets: SetData[]): number {
 /** Total reps summed across all sets in a session. */
 export function sessionTotalReps(sets: SetData[]): number {
   return sets.reduce((sum, s) => sum + (s.reps ?? 0), 0);
+}
+
+/** Total duration in minutes summed across all sets. */
+export function sessionTotalDuration(sets: SetData[]): number {
+  return sets.reduce((sum, s) => sum + (s.duration ?? 0), 0);
+}
+
+/** Total distance in km summed across all sets. */
+export function sessionTotalDistance(sets: SetData[]): number {
+  return sets.reduce((sum, s) => sum + (s.distance ?? 0), 0);
+}
+
+/**
+ * Pace as decimal minutes per km (totalMin / totalKm).
+ * Returns null when distance is 0 or duration is 0.
+ */
+export function sessionPace(sets: SetData[]): number | null {
+  const totalMin = sessionTotalDuration(sets);
+  const totalKm = sessionTotalDistance(sets);
+  if (totalKm <= 0 || totalMin <= 0) return null;
+  return totalMin / totalKm;
+}
+
+/** Format decimal-minute pace as "M:SS min/km" (e.g. 5.4545 → "5:27"). */
+export function formatPace(paceMin: number): string {
+  const min = Math.floor(paceMin);
+  const sec = Math.round((paceMin - min) * 60);
+  if (sec === 60) return `${min + 1}:00`;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 /**
