@@ -15,6 +15,9 @@ dist-ssr
 # TypeScript incremental build cache
 *.tsbuildinfo
 
+# Firebase deploy cache
+.firebase/
+
 # Manuelle Daten-Exports (enthalten personenbezogene Daten — gehören ins separate trainingsapp-backup-Projekt)
 backup/
 *.backup.json
