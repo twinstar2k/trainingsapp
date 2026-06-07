@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { seedExercises } from '../lib/seed';
-import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Studio } from '../types';
+import { Studio, GoalKey } from '../types';
 import { Trash2, Plus, LogOut, Database, Download } from 'lucide-react';
 import { exportAllUserData, downloadBackup } from '../lib/export';
+import { GoalPicker } from '../components/ai/GoalPicker';
+import { AI_RECOMMENDATIONS_ENABLED } from '../lib/featureFlags';
 
 export default function Profile() {
   const { user, signOut } = useAuth();
@@ -14,6 +16,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [goal, setGoal] = useState<GoalKey | null>(null);
 
   useEffect(() => {
     if (!user || !db) return;
@@ -36,6 +39,28 @@ export default function Profile() {
 
     fetchStudios();
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !db || !AI_RECOMMENDATIONS_ENABLED) return;
+    void (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        setGoal((snap.data()?.trainingGoal as GoalKey) ?? 'progression');
+      } catch {
+        setGoal('progression');
+      }
+    })();
+  }, [user]);
+
+  const handleGoalChange = async (g: GoalKey) => {
+    if (!user || !db) return;
+    setGoal(g);
+    try {
+      await setDoc(doc(db, 'users', user.uid), { trainingGoal: g }, { merge: true });
+    } catch (error) {
+      console.error('Error saving training goal:', error);
+    }
+  };
 
   const handleAddStudio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +172,17 @@ export default function Profile() {
           </div>
         </div>
       </section>
+
+      {/* Standard-Trainingsziel (Feature-Flag) */}
+      {AI_RECOMMENDATIONS_ENABLED && (
+        <section>
+          <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">Standard-Trainingsziel</h3>
+          <div className="bg-surface-container-lowest rounded-2xl border border-surface-container p-4 shadow-sm">
+            <p className="text-sm text-on-surface-variant mb-3">Vorauswahl für KI-Empfehlungen. Pro Empfehlung änderbar.</p>
+            {goal && <GoalPicker value={goal} onChange={handleGoalChange} />}
+          </div>
+        </section>
+      )}
 
       {/* System */}
       <section>

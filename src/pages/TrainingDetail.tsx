@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, where, getDocs, getCountFromServer, doc, getDoc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
-import { Training, TrainingExercise, TrainingSet, Exercise } from '../types';
+import { Training, TrainingExercise, TrainingSet, Exercise, RecommendationPayload } from '../types';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Check, Plus, Trash2, X, Search, CheckCircle2, Circle } from 'lucide-react';
+import { Check, Plus, Trash2, X, Search, CheckCircle2, Circle, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { CompletionCelebration } from '../components/ui/CompletionCelebration';
 import { LastSessionLabel } from '../components/LastSessionLabel';
+import { RecommendationDialog } from '../components/ai/RecommendationDialog';
+import { AI_RECOMMENDATIONS_ENABLED } from '../lib/featureFlags';
 
 export default function TrainingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +30,7 @@ export default function TrainingDetail() {
   const [showDeleteTraining, setShowDeleteTraining] = useState(false);
   const [celebrationNumber, setCelebrationNumber] = useState<number | undefined>(undefined);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showRecommendation, setShowRecommendation] = useState(false);
 
   useEffect(() => {
     if (!user || !db || !id) return;
@@ -210,6 +213,34 @@ export default function TrainingDetail() {
     } catch (error) {
       console.error("Error deleting training:", error);
     }
+  };
+
+  // Übernimmt eine (ggf. angepasste) KI-Empfehlung: hängt die vorgeschlagenen Sätze an die
+  // jeweiligen Übungen an (bestehender addDoc-Pfad) und setzt die empfohlene Pause.
+  const applyRecommendation = async (payload: RecommendationPayload) => {
+    if (!user || !db || !id) return;
+    const updated = [...exercises];
+    for (const rec of payload.exercises) {
+      const exIndex = updated.findIndex((e) => e.exerciseId === rec.exerciseId);
+      if (exIndex < 0) continue;
+      const ex = updated[exIndex];
+      const setsRef = collection(db, 'users', user.uid, 'trainings', id, 'exercises', ex.id, 'sets');
+      let order = ex.sets.length > 0 ? Math.max(...ex.sets.map((s) => s.order)) + 1 : 0;
+      const created: TrainingSet[] = [];
+      for (const rs of rec.sets) {
+        const setData: Partial<TrainingSet> = { order: order++, status: 'open', reps: rs.reps };
+        if (ex.details.type === 'weighted' && rs.weight != null) setData.weight = rs.weight;
+        const docRef = await addDoc(setsRef, setData);
+        created.push({ id: docRef.id, ...setData } as TrainingSet);
+      }
+      if (rec.restSeconds != null) {
+        await updateDoc(doc(db, 'users', user.uid, 'trainings', id, 'exercises', ex.id), {
+          restSeconds: rec.restSeconds,
+        });
+      }
+      updated[exIndex] = { ...ex, restSeconds: rec.restSeconds, sets: [...ex.sets, ...created] };
+    }
+    setExercises(updated);
   };
 
   if (loading) return <div className="text-center py-12 text-on-surface-variant">Lade Training...</div>;
@@ -426,6 +457,17 @@ export default function TrainingDetail() {
         </button>
       )}
 
+      {/* KI-Empfehlung (Feature-Flag) */}
+      {isActive && AI_RECOMMENDATIONS_ENABLED && exercises.length > 0 && (
+        <button
+          onClick={() => setShowRecommendation(true)}
+          className="w-full bg-surface-container-lowest border border-primary/30 text-primary p-4 rounded-2xl flex items-center justify-center font-bold hover:bg-primary/5 transition-all duration-150 shadow-sm"
+        >
+          <Sparkles className="w-5 h-5 mr-2" />
+          KI-Empfehlung holen
+        </button>
+      )}
+
       {/* Complete Training */}
       {exercises.length > 0 && (
         <button
@@ -504,6 +546,16 @@ export default function TrainingDetail() {
         onConfirm={handleDeleteTraining}
         onCancel={() => setShowDeleteTraining(false)}
       />
+
+      {showRecommendation && training && (
+        <RecommendationDialog
+          studioId={training.studioId}
+          date={training.date}
+          exercises={exercises.map((e) => ({ exerciseId: e.details.id, name: e.details.name, type: e.details.type }))}
+          onApply={applyRecommendation}
+          onClose={() => setShowRecommendation(false)}
+        />
+      )}
 
       <CompletionCelebration
         isOpen={showCelebration}
