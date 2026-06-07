@@ -38,6 +38,11 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 
+      // KI-Empfehlungen (Audit/Eval/Transparenz) — nur der jeweilige User.
+      match /recommendations/{recId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
       // Trainings inkl. verschachtelter Übungen und Sätze.
       match /trainings/{trainingId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
