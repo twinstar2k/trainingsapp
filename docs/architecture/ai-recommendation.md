@@ -245,6 +245,8 @@ Entscheidung & Messwerte: `docs/qa-reports/ai-recommendation-model-eval.md`.
 
 > Weitere EU-Optionen existieren (andere Bedrock-Zonen `@eu-west-1`/`@eu-north-1`, sowie Vertex `@eu`, Azure `@francecentral`/`@swedencentral`, Mistral EU-Default) — der obige Filter war Frankfurt/`eu-central-1`. „Flexibilität ∩ EU" bleibt die **Schnittmenge** EU-fähiger Modelle, nicht der volle 400+-Katalog. Exakte IDs + Live-Metriken in Requestys Model Library.
 
+**Cross-Region-Inferenz (Bedrock) — wichtig fürs Verständnis von „EU-Modell":** Die ID `@eu-central-1` ist ein **EU-Inference-Profil**, kein Frankfurt-only-Garant. Bedrock darf die eigentliche Inferenz aus Kapazitäts-/Verfügbarkeitsgründen auf **andere EU-Regionen** verteilen — z. B. `eu-west-1` (Irland), `eu-north-1` (Stockholm), `eu-west-3` (Paris). Deshalb erscheinen in der Requesty-Übersicht trotz `@eu-central-1`-Auswahl auch west-1/north-1. Die Daten bleiben dabei **EU-weit** residenz-konform → erfüllt die „Basis-DSGVO"-Anforderung, bedeutet aber **nicht** Single-Country (DE-only). Auszuschließen ist nur **Nicht-EU/EEA-Routing**, insbesondere `eu-west-2` (London/UK, post-Brexit außerhalb EU/EEA). Strikte Single-Country-Residenz ginge nur ohne Cross-Region-Profil und ist über „Basis-DSGVO" hinaus — für dieses Projekt nicht erforderlich.
+
 **Absicherung gegen versehentliche Nicht-EU-Nutzung (zwei Schichten):**
 - In Requesty die Organisation per „Model Library"-Approval **auf EU-Modelle beschränken**.
 - Zusätzlich serverseitig in der Function eine **Allowlist von EU-Modell-IDs** erzwingen (Konstante) — kein Request darf eine nicht-gelistete Modell-ID verwenden.
@@ -253,6 +255,7 @@ Entscheidung & Messwerte: `docs/qa-reports/ai-recommendation-model-eval.md`.
 
 **Vor produktivem Multi-User-Einsatz zu verifizieren / erledigen:**
 - DPA unterzeichnen; Requesty **und** das jeweilige EU-Inferenz-Backend (AWS/Google/Azure/Mistral) als **Auftragsverarbeiter ins ROPA** aufnehmen — Datenkette `App → Requesty (EU) → EU-Modell-Provider`.
+- **Cross-Region-Routing prüfen:** sicherstellen, dass das EU-Inference-Profil nur EU/EEA-Regionen umfasst (kein `eu-west-2`/London).
 - **SOC 2 Type II:** Requesty-Doku ist hier widersprüchlich (an einer Stelle „compliant", an anderer „in progress, erwartet Q2 2026") → Status vor Produktion **bestätigen**.
 - Explizite **„kein Training auf Daten"-Zusage** im DPA/Terms schriftlich festmachen (Zero-Retention impliziert es, reicht aber als Zusicherung allein nicht).
 - **Eval vs. Produktion trennen:** Eval mit *deinen eigenen* Daten ist DSGVO-unkritisch (du bist einziges Datensubjekt). Die volle EU-/No-Train-/DPA-Härte greift ab dem Moment, in dem *fremde* Nutzerdaten fließen.
