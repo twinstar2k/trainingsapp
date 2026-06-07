@@ -233,16 +233,17 @@ src/lib/firebase.ts                 ← getFunctions(app, 'europe-west3') ergän
 1. **Gateway-Ebene:** EU-Endpunkt `https://router.eu.requesty.ai/v1` (Anthropic-kompatibel ohne `/v1`) → Routing/Logging/Analytics in Frankfurt (AWS `eu-central-1`).
 2. **Inferenz-Ebene:** ausschließlich EU-Region-Modelle. **Globale** Modell-IDs (z. B. `anthropic/claude-sonnet-4-5-...`) verlassen zur Inferenz die EU.
 
-**EU-Modelle (laut Requesty-Doku, Stand Recherche Juni 2026):**
+**EU-Modelle — Frankfurt (`@eu-central-1`, Provider Bedrock), evaluiert Juni 2026:**
 
-| Quelle | Beispiel-Modell-IDs | Region |
+| Modell-ID | Rolle | Eval-Notiz |
 |---|---|---|
-| AWS Bedrock | `bedrock/claude-sonnet-4-5-v2@eu-central-1`, `…@eu-west-1`, `bedrock/claude-3-5-haiku@eu-central-1` | `eu-central-1` / `eu-west-1` / `eu-north-1` |
-| Google Vertex | `vertex/gemini-3.5-flash@eu`, `vertex/gemini-3.1-flash-lite@eu` | EU (`@eu`) |
-| Azure | Modelle mit `@francecentral`, `@swedencentral` | France / Sweden Central |
-| Mistral | per Default EU-gehostet | EU (Frankreich) |
+| `bedrock/claude-haiku-4-5@eu-central-1` | **Default (gewählt)** | schnellste Latenz (~2,8 s e2e), 100 % valide, ~0,15 ¢/Empf. |
+| `bedrock/minimax-m2.5@eu-central-1` | Fallback (günstig) | günstigstes (~0,06 ¢), aber ~2× Latenz, etwas forscher |
+| `bedrock/claude-opus-4-8@eu-central-1` | optionaler Qualitätsmodus | feinste Beratung (Studio-Kontext erkannt), aber zu langsam als Default |
 
-> Folge: „Flexibilität ∩ EU" ist die **Schnittmenge** der oben verfügbaren EU-Modelle, **nicht** der volle 400+-Katalog. Für `weighted`-Empfehlungen mit striktem Structured-Output sind Bedrock-Claude (Tool-Use-robust) und Vertex-Gemini-Flash (günstig) die naheliegenden Startkandidaten.
+Entscheidung & Messwerte: `docs/qa-reports/ai-recommendation-model-eval.md`.
+
+> Weitere EU-Optionen existieren (andere Bedrock-Zonen `@eu-west-1`/`@eu-north-1`, sowie Vertex `@eu`, Azure `@francecentral`/`@swedencentral`, Mistral EU-Default) — der obige Filter war Frankfurt/`eu-central-1`. „Flexibilität ∩ EU" bleibt die **Schnittmenge** EU-fähiger Modelle, nicht der volle 400+-Katalog. Exakte IDs + Live-Metriken in Requestys Model Library.
 
 **Absicherung gegen versehentliche Nicht-EU-Nutzung (zwei Schichten):**
 - In Requesty die Organisation per „Model Library"-Approval **auf EU-Modelle beschränken**.
@@ -262,7 +263,7 @@ src/lib/firebase.ts                 ← getFunctions(app, 'europe-west3') ergän
 
 - **Token-Budget klein halten:** Nur die kuratierte `TrainingState` geht in den Prompt (kein Roh-Verlauf). System-Prompt + Katalog-/Regelteil per **Prompt-Caching** wiederverwenden (sofern vom EU-Modell unterstützt) → günstiger pro Anfrage.
 - **Gateway-Aufschlag:** Requesty ~5 % auf die Modellkosten (für unified API, Routing, Failover, EU-Endpunkt). Bei den kleinen Kontexten hier vernachlässigbar gegenüber dem Komfort; Direkt-Provider (0 % Aufschlag, aber Key-Verwaltung pro Anbieter) bleibt via Abstraktion offen.
-- **Modellwahl:** Start mit kostengünstigem **EU-Modell** (z. B. `vertex/gemini-3.5-flash@eu` oder `bedrock/claude-3-5-haiku@eu-central-1`), bei Bedarf auf `bedrock/claude-sonnet-4-5-v2@eu-central-1` hochstufen (ADR-03 / §6).
+- **Modellwahl:** Default `bedrock/claude-haiku-4-5@eu-central-1` (per Eval gewählt — ADR-03 / §6 / qa-report). Kosten je Empfehlung < ⅓ Cent → bei den kleinen Kontexten kein Unterscheidungskriterium.
 - **Latenz:** wenige Sekunden pro Empfehlung — akzeptabel, weil bewusst per Klick ausgelöst; klarer Lade-Zustand (US-02.1).
 - **Caching von Empfehlungen:** Innerhalb eines Tages ändert sich die Empfehlung kaum — optionales späteres Caching per (exerciseIds + goal + Verlaufs-Hash); für MVP nicht nötig.
 
@@ -288,7 +289,7 @@ src/lib/firebase.ts                 ← getFunctions(app, 'europe-west3') ergän
 **Kontext:** Anforderung = LLM-**Flexibilität** + **EU-Datenresidenz** + **kein Training** auf Daten + Kosten/Leistung evaluierbar. Direkt-Provider erfüllen EU/No-Train je nach Anbieter unterschiedlich; ein US-Gateway (OpenRouter) bricht die EU-Residenz durch den US-Hop.
 **Entscheidung:** Modell-Zugang über **Requesty** als EU-Gateway (Frankfurt, AWS `eu-central-1`), OpenAI-SDK-kompatibel über den **EU-Endpunkt** `https://router.eu.requesty.ai/v1`. Dahinter weiterhin die dünne `LlmProvider`-Abstraktion, damit Requesty selbst austauschbar bleibt. Strukturierte Ausgabe via Tool-Use/JSON-Schema; Prompt-Caching nur, sofern vom gewählten EU-Modell unterstützt.
 **Zwei-Ebenen-Pflicht:** Der EU-Endpunkt hält nur *Requestys* Verarbeitung in der EU. Für Ende-zu-Ende-EU muss zusätzlich ein **EU-gehostetes Modell** gewählt werden (Details: §6 „DSGVO / EU-Datenresidenz"). Globale Modell-IDs würden zur Inferenz die EU verlassen.
-**Modellwahl (Start):** kostengünstiges EU-Modell mit robustem Structured-Output, z. B. `vertex/gemini-3.5-flash@eu` oder `bedrock/claude-3-5-haiku@eu-central-1`; Upgrade-Pfad zu `bedrock/claude-sonnet-4-5-v2@eu-central-1`. Mehrere EU-Modelle lassen sich über dasselbe Gateway evaluieren.
+**Modellwahl:** Per Eval entschieden (Juni 2026, Frankfurt/`eu-central-1` — siehe `docs/qa-reports/ai-recommendation-model-eval.md`): **Default `bedrock/claude-haiku-4-5@eu-central-1`** (schnellste e2e-Latenz ~2,8 s, 100 % Structured-Output, vernachlässigbare Kosten). Fallback `bedrock/minimax-m2.5@eu-central-1` (günstiger, aber ~2× Latenz); optionaler Qualitätsmodus `bedrock/claude-opus-4-8@eu-central-1` (feinste Beratung, zu langsam als Default).
 **Konsequenzen:** Flexibilität (viele Modelle, ein Key, OpenAI-SDK) + EU-Residenz + Zero-Retention in einem Schritt; dafür ein zusätzlicher Sub-Prozessor (DPA/ROPA, §6) und Bindung an die Schnittmenge EU-fähiger Modelle. Die Abstraktion bleibt als Versicherung gegen Vendor-/Reifegrad-Risiko (Requesty = junges Startup).
 **Verworfen:** OpenRouter (US-Hop, EU-Residenz unzuverlässig); Anthropic direkt (EU-Residenz schwächer). Beides bleibt über die Abstraktion theoretisch anschließbar; Local-LLM-Option ebenfalls offen.
 
@@ -341,11 +342,12 @@ LLM wählt Übungen selbst (Split/Balance/Erholung): erweiterter Kandidaten-Kont
 
 **Ziel:** Vor dem Bau der Function das EU-Modell mit dem besten **Verhältnis aus Structured-Output-Zuverlässigkeit, Coaching-Qualität und Kosten** für Stufe 1 bestimmen. Bewusst klein gehalten — eine Vorab-Messung, kein vollständiges Benchmarking.
 
-**Kandidaten (EU-gehostet, je ADR-03 / §6):**
-1. `vertex/gemini-3.5-flash@eu` — günstig, schnell
-2. `bedrock/claude-3-5-haiku@eu-central-1` — robustes Tool-Use
-3. *(optional)* `mistral/…` (EU-Default) als „europäischste" Variante
-→ Gewinner-Upgrade-Pfad bei Bedarf: `bedrock/claude-sonnet-4-5-v2@eu-central-1`.
+> **Status: durchgeführt (Juni 2026).** Ergebnis & Entscheidung: `docs/qa-reports/ai-recommendation-model-eval.md` → Default `bedrock/claude-haiku-4-5@eu-central-1`.
+
+**Evaluierte Kandidaten (Frankfurt/`eu-central-1`, Bedrock):**
+1. `bedrock/claude-haiku-4-5@eu-central-1` — Sweet-Spot (schnell, robustes Tool-Use) → **gewählt**
+2. `bedrock/minimax-m2.5@eu-central-1` — günstiger Herausforderer (offenes Modell)
+3. `bedrock/claude-opus-4-8@eu-central-1` — Qualitäts-Obergrenze
 
 **Testdaten:** 5–8 reale `TrainingState`-Szenarien aus der **eigenen** Historie (du = einziges Datensubjekt → DSGVO unkritisch), die die Grenzfälle abdecken:
 - (a) `weighted` mit klarer Progressionshistorie

@@ -204,7 +204,7 @@ Das adressiert die drei größten Risiken in einem Zug: Halluzination (erfundene
 
 ## Offene Fragen (im Architektur-/Umsetzungsschritt zu klären)
 
-1. ~~**LLM-Provider/-Modell:**~~ → **Entschieden:** Modell-Zugang über EU-Gateway **Requesty** (EU-Endpunkt + EU-Modell, Provider-Abstraktion). Start mit kostengünstigem EU-Modell (z. B. `vertex/gemini-3.5-flash@eu` oder `bedrock/claude-3-5-haiku@eu-central-1`), Upgrade zu `bedrock/claude-sonnet-4-5-v2@eu-central-1`. Begründung & EU-Modell-Liste: Architektur-Doc ADR-03 + §6 „DSGVO / EU-Datenresidenz".
+1. ~~**LLM-Provider/-Modell:**~~ → **Entschieden:** EU-Gateway **Requesty** (EU-Endpunkt + EU-Modell, Provider-Abstraktion). Default-Modell per Eval: **`bedrock/claude-haiku-4-5@eu-central-1`** (Fallback `minimax-m2.5`, Qualitätsmodus `opus-4-8`). Begründung: Architektur-Doc ADR-03 / §6 + `docs/qa-reports/ai-recommendation-model-eval.md`.
 2. **Pausen speichern?** Empfehlung enthält Pausen. Werden sie pro Satz/Übung persistiert (neues optionales Feld) oder nur angezeigt? Vorschlag: optionales Feld, MVP zeigt zumindest an.
 3. **Konkrete Progressions-Caps:** z. B. „max. +10 % oder +5 kg, je nachdem was kleiner ist". Defaults im Architektur-Doc, später feinjustierbar.
 4. **Eval/Qualitätsmessung:** Vorschlag — jede Empfehlung mit Input-Snapshot, Output, Modell und Akzeptanz-Status loggen; Akzeptanzquote + manuelle Stichproben als erste Qualitätsmetrik.

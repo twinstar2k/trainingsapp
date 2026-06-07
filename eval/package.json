@@ -1,0 +1,11 @@
+{
+  "name": "trainingsapp-ai-eval",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Eigenständiges Eval-Harness für die KI-Trainingsempfehlung (Stufe 1). Dependency-frei (native fetch).",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "eval": "node run-eval.mjs"
+  }
+}

@@ -1,0 +1,170 @@
+[
+  {
+    "id": "A-weighted-progression",
+    "description": "Freies Gewicht mit klarer Progressionshistorie. Erwartung: moderate Steigerung, innerhalb Cap (≤ +5 kg / +10 %).",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-peoples",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "langhantel-bankdruecken",
+          "name": "Langhantel Bankdrücken",
+          "type": "weighted",
+          "muscleGroup": "Brust",
+          "contextDependent": false,
+          "daysSinceLast": 4,
+          "lastSession": { "sets": [ { "reps": 10, "weight": 50 }, { "reps": 10, "weight": 50 }, { "reps": 9, "weight": 50 } ] },
+          "best1RM": 66.7,
+          "trend": [
+            { "date": "2026-05-20", "best1RM": 60.0, "maxWeight": 45 },
+            { "date": "2026-05-28", "best1RM": 63.3, "maxWeight": 47.5 },
+            { "date": "2026-06-04", "best1RM": 66.7, "maxWeight": 50 }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "B-reps-only-hypertrophy",
+    "description": "Bodyweight-Übung (reps_only). Erwartung: KEIN Gewicht, nur Wiederholungen, leichte Steigerung der Reps.",
+    "state": {
+      "goal": "hypertrophy",
+      "date": "2026-06-08",
+      "studioId": "studio-peoples",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "dips",
+          "name": "Dips",
+          "type": "reps_only",
+          "muscleGroup": "Brust/Trizeps",
+          "contextDependent": false,
+          "daysSinceLast": 5,
+          "lastSession": { "sets": [ { "reps": 12 }, { "reps": 11 }, { "reps": 10 } ] },
+          "best1RM": null,
+          "trend": [
+            { "date": "2026-05-24", "best1RM": null, "maxWeight": 0 },
+            { "date": "2026-06-03", "best1RM": null, "maxWeight": 0 }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "C-context-dependent-machine",
+    "description": "Maschine (context_dependent=true). Historie ist bereits auf das aktuelle Studio gefiltert. Erwartung: konservative Steigerung, kein studioübergreifender Vergleich.",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-david-lloyd",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "maschine-brustpresse",
+          "name": "Maschine Brustpresse",
+          "type": "weighted",
+          "muscleGroup": "Brust",
+          "contextDependent": true,
+          "daysSinceLast": 6,
+          "lastSession": { "sets": [ { "reps": 12, "weight": 55 }, { "reps": 12, "weight": 55 }, { "reps": 10, "weight": 55 } ] },
+          "best1RM": 77.0,
+          "trend": [
+            { "date": "2026-05-22", "best1RM": 72.0, "maxWeight": 50 },
+            { "date": "2026-06-01", "best1RM": 77.0, "maxWeight": 55 }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "D-no-history-starter",
+    "description": "Übung ohne jede Historie. Erwartung: vorsichtiger Startwert, als solcher gekennzeichnet (Guardrail-Flag 'starter').",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-peoples",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "kurzhantel-schulterdruecken-einarmig",
+          "name": "Kurzhantel Schulterdrücken einarmig",
+          "type": "weighted",
+          "muscleGroup": "Schultern",
+          "contextDependent": false,
+          "daysSinceLast": null,
+          "lastSession": null,
+          "best1RM": null,
+          "trend": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "E-deload",
+    "description": "Ziel deload nach hoher Last. Erwartung: Gewicht bewusst UNTER der letzten Einheit (10–20 %), niemals Steigerung.",
+    "state": {
+      "goal": "deload",
+      "date": "2026-06-08",
+      "studioId": "studio-david-lloyd",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "maschine-beinstrecker",
+          "name": "Maschine Beinstrecker",
+          "type": "weighted",
+          "muscleGroup": "Beine",
+          "contextDependent": true,
+          "daysSinceLast": 3,
+          "lastSession": { "sets": [ { "reps": 10, "weight": 60 }, { "reps": 10, "weight": 60 }, { "reps": 8, "weight": 60 } ] },
+          "best1RM": 80.0,
+          "trend": [
+            { "date": "2026-05-25", "best1RM": 76.0, "maxWeight": 55 },
+            { "date": "2026-06-05", "best1RM": 80.0, "maxWeight": 60 }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "F-multi-exercise",
+    "description": "Mehrere Übungen gemischt (weighted + reps_only) in einer Einheit. Erwartung: korrektes Array mit Empfehlungen pro Übung, je nach Typ.",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-peoples",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "langhantel-rudern-vorgebeugt",
+          "name": "Langhantel Rudern vorgebeugt",
+          "type": "weighted",
+          "muscleGroup": "Rücken",
+          "contextDependent": false,
+          "daysSinceLast": 7,
+          "lastSession": { "sets": [ { "reps": 10, "weight": 60 }, { "reps": 10, "weight": 60 }, { "reps": 10, "weight": 60 } ] },
+          "best1RM": 80.0,
+          "trend": [
+            { "date": "2026-05-26", "best1RM": 77.0, "maxWeight": 57.5 },
+            { "date": "2026-06-02", "best1RM": 80.0, "maxWeight": 60 }
+          ]
+        },
+        {
+          "exerciseId": "liegestuetze",
+          "name": "Liegestütze",
+          "type": "reps_only",
+          "muscleGroup": "Brust",
+          "contextDependent": false,
+          "daysSinceLast": 7,
+          "lastSession": { "sets": [ { "reps": 20 }, { "reps": 18 }, { "reps": 15 } ] },
+          "best1RM": null,
+          "trend": [
+            { "date": "2026-05-26", "best1RM": null, "maxWeight": 0 },
+            { "date": "2026-06-02", "best1RM": null, "maxWeight": 0 }
+          ]
+        }
+      ]
+    }
+  }
+]
