@@ -15,6 +15,12 @@ export type GoalKey =
   | 'maintenance'
   | 'deload';
 
+/**
+ * Wiederholungen in Reserve (RIR) der letzten Einheit — grob, 3-stufig (pro Übung erfasst).
+ * 2 = 2+ in Reserve · 1 = 1 in Reserve · 0 = bis zum Muskelversagen.
+ */
+export type RirLevel = 0 | 1 | 2;
+
 /** Kuratierter Verlaufs-Kontext einer Übung — Input fürs LLM (klein gehalten). */
 export interface ExerciseContext {
   exerciseId: string;
@@ -24,6 +30,7 @@ export interface ExerciseContext {
   contextDependent: boolean;
   daysSinceLast: number | null;
   lastSession: { sets: Array<{ reps: number; weight?: number }> } | null;
+  lastRir: RirLevel | null; // RIR der letzten Einheit — Signal für Autoregulation
   best1RM: number | null;
   trend: Array<{ date: string; best1RM: number | null; maxWeight: number }>; // letzte 3–5
 }
@@ -55,6 +62,28 @@ export interface RecommendedExercise {
 export interface RecommendationPayload {
   summary: string;
   exercises: RecommendedExercise[];
+}
+
+/**
+ * Aktion, die der deterministische Policy-Kern (Stufe 1.5) je Übung gewählt hat.
+ * Siehe shared/policy.ts und docs/architecture/ai-coach-engine.md.
+ */
+export type PlanAction =
+  | 'starter' // keine Historie — LLM schlägt konservativen Startwert vor
+  | 'progress_load' // Range gefüllt + Reserve → Last hoch, Wdh zurück auf min
+  | 'progress_reps' // Range nicht gefüllt → Last halten, Wdh Richtung max
+  | 'hold' // Range gefüllt, aber kein Last-Sprung erlaubt (Versagen oder RIR fehlt)
+  | 'deload' // Ziel deload → Last senken
+  | 'maintain'; // Ziel maintenance / Fallback → wie zuletzt
+
+/** Ergebnis des Policy-Kerns je Übung (deterministisch berechnet). */
+export interface ExercisePlan {
+  exerciseId: string;
+  action: PlanAction;
+  reason: string; // Maschinen-Code, z.B. 'range_filled_reserve'
+  repRange: [number, number] | null;
+  increment: number; // kg-Schritt der Last-Erhöhung (0 wenn keine)
+  sets: RecommendedSet[]; // berechnete Sätze ([] bei 'starter' → LLM füllt)
 }
 
 /** Persistiertes Empfehlungs-Dokument (users/{uid}/recommendations) — Audit/Eval/Transparenz. */

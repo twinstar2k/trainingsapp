@@ -1,7 +1,7 @@
 // Kontextaufbau (Sandwich-Schicht A): aus geladenen Vergangenheits-Sessions die kuratierte
 // TrainingState-Zusammenfassung bauen. Reine Funktionen (kein Firestore-IO) → offline testbar.
 // Nutzt die geteilten Metriken aus shared/metrics.ts (Single Source, ADR-04).
-import type { ExerciseContext, ExerciseType, GoalKey, TrainingState } from '../../../shared/ai-types';
+import type { ExerciseContext, ExerciseType, GoalKey, RirLevel, TrainingState } from '../../../shared/ai-types';
 import { bestSessionOneRM, sessionMaxWeight } from '../../../shared/metrics';
 
 /** Eine vergangene (abgeschlossene) Session einer Übung. */
@@ -9,6 +9,7 @@ export interface PastSession {
   date: string; // YYYY-MM-DD
   studioId: string;
   sets: Array<{ reps?: number; weight?: number }>;
+  rir?: RirLevel; // erfasste Anstrengung dieser Einheit (falls geloggt)
 }
 
 /** Eingabe pro Übung: Stammdaten + bereits geladene Sessions (studio-gefiltert wenn contextDependent). */
@@ -60,6 +61,7 @@ export function buildExerciseContext(input: ExerciseInput, referenceDate: string
             .map((x) => ({ reps: x.reps as number, weight: x.weight })),
         }
       : null,
+    lastRir: last?.rir ?? null,
     best1RM,
     trend,
   };
