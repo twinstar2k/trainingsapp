@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, where, getDocs, getCountFromServer, doc, getDoc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
-import { Training, TrainingExercise, TrainingSet, Exercise, RecommendationPayload } from '../types';
+import { Training, TrainingExercise, TrainingSet, Exercise, RecommendationPayload, RirLevel } from '../types';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -13,6 +13,13 @@ import { CompletionCelebration } from '../components/ui/CompletionCelebration';
 import { LastSessionLabel } from '../components/LastSessionLabel';
 import { RecommendationDialog } from '../components/ai/RecommendationDialog';
 import { AI_RECOMMENDATIONS_ENABLED } from '../lib/featureFlags';
+
+// Reserve (RIR) am Satzende — Signal für die KI-Autoregulation. 2 = 2+ in Reserve … 0 = Versagen.
+const RIR_OPTIONS: { value: RirLevel; label: string }[] = [
+  { value: 2, label: '2+ Wdh' },
+  { value: 1, label: '1 Wdh' },
+  { value: 0, label: 'Versagen' },
+];
 
 export default function TrainingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -176,6 +183,20 @@ export default function TrainingDetail() {
   const toggleSetStatus = async (exerciseId: string, exIndex: number, setId: string, setIndex: number) => {
     const currentStatus = exercises[exIndex].sets[setIndex].status;
     await handleUpdateSet(exerciseId, exIndex, setId, setIndex, 'status', currentStatus === 'open' ? 'done' : 'open');
+  };
+
+  // Reserve (RIR) der Übung erfassen — pro Übung ein Wert, optional. Speist die KI-Autoregulation.
+  const handleSetRir = async (exerciseId: string, exIndex: number, rir: RirLevel) => {
+    if (!user || !db || !id) return;
+    const updated = [...exercises];
+    updated[exIndex] = { ...updated[exIndex], rir };
+    setExercises(updated);
+    try {
+      const exRef = doc(db, 'users', user.uid, 'trainings', id, 'exercises', exerciseId);
+      await updateDoc(exRef, { rir });
+    } catch (error) {
+      console.error('Error updating RIR:', error);
+    }
   };
 
   const toggleTrainingStatus = async () => {
@@ -441,6 +462,35 @@ export default function TrainingDetail() {
                   Satz hinzufügen
                 </button>
               )}
+
+              {/* Reserve (RIR) — Signal für die KI-Autoregulation. Optional. */}
+              {(ex.details.type === 'weighted' || ex.details.type === 'reps_only') &&
+                ex.sets.length > 0 &&
+                (isActive || ex.rir != null) && (
+                  <div
+                    className="flex items-center justify-between gap-2 pt-1"
+                    title="Wie viele Wiederholungen wären am letzten Satz noch drin gewesen?"
+                  >
+                    <span className="text-xs font-semibold text-outline uppercase tracking-wider">Reserve</span>
+                    <div className="flex gap-1">
+                      {RIR_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => handleSetRir(ex.id, exIndex, opt.value)}
+                          disabled={!isActive}
+                          className={cn(
+                            'px-3 py-1.5 rounded-xl text-xs font-bold transition-colors duration-150 disabled:cursor-not-allowed',
+                            ex.rir === opt.value
+                              ? 'bg-primary text-on-primary'
+                              : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high disabled:opacity-60',
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
         ))}
