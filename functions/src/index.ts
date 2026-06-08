@@ -4,9 +4,10 @@
 import { onCall, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
-import type { GoalKey, Recommendation, RecommendationPayload } from '../../shared/ai-types';
+import type { GoalKey, Recommendation, RecommendationPayload, RirLevel } from '../../shared/ai-types';
 import { buildTrainingState, type ExerciseInput, type PastSession } from './lib/context';
 import { applyGuardrails, clampPayload } from './lib/guardrails';
+import { computeExercisePlan, describePlan } from '../../shared/policy';
 import { getRecommendationFromLlm } from './llm/provider';
 
 admin.initializeApp();
@@ -96,25 +97,40 @@ export const getTrainingRecommendation = onCall(
       goal, date: data.date, studioId: data.studioId, bodyweightKg, exercises: exerciseInputs,
     });
 
-    // (B) LLM aufrufen.
+    // (B) Policy-Kern: Progression deterministisch berechnen (Code = Systematik).
+    const plans = state.exercises.map((e) => computeExercisePlan(e, goal));
+
+    // (C) LLM aufrufen — liefert NUR die Begründung (+ Startsätze für Übungen ohne Verlauf).
     let llm;
     try {
       llm = await getRecommendationFromLlm({
-        apiKey: REQUESTY_API_KEY.value(), baseUrl: BASE_URL, model, state,
+        apiKey: REQUESTY_API_KEY.value(), baseUrl: BASE_URL, model, state, plans,
       });
     } catch (e) {
       throw new HttpsError('failed-precondition', `Empfehlung nicht möglich: ${(e as Error).message}`);
     }
 
-    // (C) Guardrails: erfundene Übungen entfernen, Gewichte über Cap klammern.
-    const allowed = new Set(state.exercises.map((e) => e.exerciseId));
+    // (D) Policy-first: Sätze stammen aus dem deterministischen Plan; das LLM liefert nur die
+    // Begründung. Bei "starter" (kein Verlauf) übernimmt das LLM die vorgeschlagenen Sätze.
+    // Guardrails bleiben als Sicherheitsnetz (Cap, Starter-Flag).
+    const llmById = new Map(llm.payload.exercises.map((e) => [e.exerciseId, e]));
     const cleaned: RecommendationPayload = {
       summary: llm.payload.summary,
-      exercises: llm.payload.exercises.filter((e) => allowed.has(e.exerciseId)),
+      exercises: plans.map((plan) => {
+        const llmEx = llmById.get(plan.exerciseId);
+        const isStarter = plan.action === 'starter';
+        return {
+          exerciseId: plan.exerciseId,
+          rationale: llmEx?.rationale?.trim() || describePlan(plan),
+          restSeconds: typeof llmEx?.restSeconds === 'number' ? llmEx.restSeconds : 120,
+          sets: isStarter ? (llmEx?.sets ?? []) : plan.sets,
+        };
+      }),
     };
     const guard = applyGuardrails(cleaned, state);
     const payload = clampPayload(cleaned, guard);
     const flags = [
+      ...plans.map((p) => `action:${p.action}:${p.exerciseId}`),
       ...guard.clamps.map((c) => `clamped:${c.exerciseId}`),
       ...guard.starters.map((s) => `starter:${s}`),
       ...guard.violations.map((v) => `violation:${v}`),
@@ -154,12 +170,14 @@ async function fetchSessions(
     const tData = t.data() as { date: string; studioId: string };
     const exSnap = await t.ref.collection('exercises').where('exerciseId', '==', exerciseId).limit(1).get();
     if (exSnap.empty) continue;
-    const setsSnap = await exSnap.docs[0].ref.collection('sets').get();
+    const exDoc = exSnap.docs[0];
+    const rir = (exDoc.data() as { rir?: RirLevel }).rir;
+    const setsSnap = await exDoc.ref.collection('sets').get();
     const sets = setsSnap.docs.map((s) => {
       const d = s.data() as { reps?: number; weight?: number };
       return { reps: d.reps, weight: d.weight };
     });
-    if (sets.length) sessions.push({ date: tData.date, studioId: tData.studioId, sets });
+    if (sets.length) sessions.push({ date: tData.date, studioId: tData.studioId, sets, rir });
   }
   return sessions;
 }

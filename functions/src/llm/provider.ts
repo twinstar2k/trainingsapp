@@ -1,7 +1,7 @@
 // LLM-Provider (Sandwich-Schicht B): Aufruf des EU-Gateways Requesty (OpenAI-kompatibel)
 // via native fetch, strukturierte Ausgabe per Tool-Use, 1 Retry bei Schema-Verstoß.
 // Provider hinter dünner Funktion → später austauschbar (ADR-03).
-import type { RecommendationPayload, TrainingState } from '../../../shared/ai-types';
+import type { ExercisePlan, RecommendationPayload, TrainingState } from '../../../shared/ai-types';
 import { RECOMMENDATION_TOOL } from '../lib/schema';
 import { buildMessages, type ChatMessage } from '../lib/prompt';
 import { validateStructure } from '../lib/guardrails';
@@ -42,8 +42,9 @@ export async function getRecommendationFromLlm(opts: {
   baseUrl: string;
   model: string;
   state: TrainingState;
+  plans: ExercisePlan[];
 }): Promise<LlmResult> {
-  let messages: ChatMessage[] = buildMessages(opts.state);
+  let messages: ChatMessage[] = buildMessages(opts.state, opts.plans);
   let lastErr = 'unbekannt';
 
   for (let attempt = 1; attempt <= 2; attempt++) {

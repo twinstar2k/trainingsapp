@@ -152,3 +152,36 @@ export function computeExercisePlan(ex: ExerciseContext, goal: GoalKey): Exercis
   const target = Math.min(Math.max(minRepsAtWorking + 1, min), max);
   return makePlan(ex, 'progress_reps', 'range_not_filled', repeatSets(setCount, { reps: target, weight: workingWeight }), range);
 }
+
+/**
+ * Kurze, rein faktische Begründung (Deutsch) zu einem Plan — ohne Anstrengungs-Behauptung.
+ * Dient als Hinweis fürs LLM (Schicht C) UND als deterministischer Fallback, wenn kein LLM
+ * verfügbar ist (graceful degradation).
+ */
+export function describePlan(plan: ExercisePlan): string {
+  const top = plan.sets[0];
+  const reps = top?.reps;
+  const w = top?.weight;
+  const n = plan.sets.length;
+  const scheme = w != null ? `${n}×${reps} @ ${w} kg` : `${n}×${reps} Wdh`;
+  switch (plan.reason) {
+    case 'range_filled_reserve':
+      return `Oberen Wdh-Bereich mit Reserve erreicht — Last +${plan.increment} kg, Wdh zurück auf ${reps}. Ziel: ${scheme}.`;
+    case 'range_not_filled':
+      return `Oberen Wdh-Bereich noch nicht erreicht — Gewicht halten, eine Wdh mehr anpeilen: ${scheme}.`;
+    case 'failure':
+      return `Letzte Einheit bis ans Limit — Gewicht halten und konsolidieren: ${scheme}.`;
+    case 'no_rir':
+      return `Kein RIR erfasst — Gewicht gehalten. Logge die Anstrengung, um die Last freizugeben. Ziel: ${scheme}.`;
+    case 'goal_deload':
+      return `Deload — Last bewusst gesenkt: ${scheme}.`;
+    case 'goal_maintenance':
+      return `Halten — wie zuletzt: ${scheme}.`;
+    case 'reps_only_progress':
+      return `Körpergewicht — eine Wiederholung mehr anpeilen: ${scheme}.`;
+    case 'no_history':
+      return 'Noch keine Historie — vorsichtig mit moderatem Startwert herantasten.';
+    default:
+      return scheme;
+  }
+}
