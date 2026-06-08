@@ -137,22 +137,13 @@ export function RecommendationDialog({ studioId, date, exercises, onApply, onClo
               Erneut versuchen
             </button>
           ) : hasResult && payload ? (
-            <>
-              <button
-                onClick={() => runFetch(goal)}
-                className="px-5 h-14 rounded-2xl font-bold text-on-surface-variant hover:bg-surface-container-low transition-colors flex items-center"
-              >
-                <RefreshCw className="w-5 h-5 mr-2" />
-                Neu
-              </button>
-              <button
-                onClick={handleApply}
-                disabled={applying || payload.exercises.every((e) => e.sets.length === 0)}
-                className="flex-1 h-14 bg-primary text-on-primary rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-primary-container transition-all duration-150 active:scale-[0.97] flex items-center justify-center disabled:opacity-70"
-              >
-                {applying ? 'Übernehme…' : 'Übernehmen'}
-              </button>
-            </>
+            <button
+              onClick={handleApply}
+              disabled={applying || payload.exercises.every((e) => e.sets.length === 0)}
+              className="w-full h-14 bg-primary text-on-primary rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-primary-container transition-all duration-150 active:scale-[0.97] flex items-center justify-center disabled:opacity-70"
+            >
+              {applying ? 'Übernehme…' : 'Übernehmen'}
+            </button>
           ) : null}
         </div>
       )}
