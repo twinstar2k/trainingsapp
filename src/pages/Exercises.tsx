@@ -110,9 +110,9 @@ export default function Exercises() {
       await fetchCatalog();
       resetForm();
       setShowForm(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating exercise:', error);
-      setFormError(error?.message || 'Übung konnte nicht gespeichert werden.');
+      setFormError((error instanceof Error ? error.message : '') || 'Übung konnte nicht gespeichert werden.');
     } finally {
       setSaving(false);
     }

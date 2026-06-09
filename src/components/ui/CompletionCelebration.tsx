@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check } from 'lucide-react';
 
 interface CompletionCelebrationProps {
   isOpen: boolean;
   trainingNumber?: number;
+  messageSeed?: number; // vom Aufrufer (Event-Handler) gewürfelt → Render bleibt rein
   onClose: () => void;
 }
 
@@ -23,11 +24,9 @@ const MESSAGES = [
 
 const AUTO_CLOSE_MS = 2800;
 
-export function CompletionCelebration({ isOpen, trainingNumber, onClose }: CompletionCelebrationProps) {
-  const message = useMemo(
-    () => MESSAGES[Math.floor(Math.random() * MESSAGES.length)],
-    [isOpen],
-  );
+export function CompletionCelebration({ isOpen, trainingNumber, messageSeed = 0, onClose }: CompletionCelebrationProps) {
+  // Deterministisch aus dem Seed gewählt → reiner Render (Zufall liegt im Aufrufer-Event).
+  const message = MESSAGES[((messageSeed % MESSAGES.length) + MESSAGES.length) % MESSAGES.length];
 
   useEffect(() => {
     if (!isOpen) return;

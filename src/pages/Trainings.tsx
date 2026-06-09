@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { Training, Studio } from '../types';
+import { Training } from '../types';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Link } from 'react-router-dom';

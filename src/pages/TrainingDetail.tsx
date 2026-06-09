@@ -36,6 +36,7 @@ export default function TrainingDetail() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteTraining, setShowDeleteTraining] = useState(false);
   const [celebrationNumber, setCelebrationNumber] = useState<number | undefined>(undefined);
+  const [celebrationSeed, setCelebrationSeed] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
   // KI-Empfehlung ist pro Übung: hält die Katalog-ID der Übung, für die der Dialog offen ist.
   const [recommendExerciseId, setRecommendExerciseId] = useState<string | null>(null);
@@ -124,7 +125,7 @@ export default function TrainingDetail() {
     const setsRef = collection(db, 'users', user.uid, 'trainings', id, 'exercises', exerciseId, 'sets');
     const newOrder = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => s.order)) + 1 : 0;
 
-    let newSetData: Partial<TrainingSet> = { order: newOrder, status: 'open' };
+    const newSetData: Partial<TrainingSet> = { order: newOrder, status: 'open' };
     if (exercise.sets.length > 0) {
       const lastSet = exercise.sets[exercise.sets.length - 1];
       if (lastSet.reps !== undefined) newSetData.reps = lastSet.reps;
@@ -150,7 +151,7 @@ export default function TrainingDetail() {
     }
   };
 
-  const handleUpdateSet = async (exerciseId: string, exIndex: number, setId: string, setIndex: number, field: keyof TrainingSet, value: any) => {
+  const handleUpdateSet = async <K extends keyof TrainingSet>(exerciseId: string, exIndex: number, setId: string, setIndex: number, field: K, value: TrainingSet[K]) => {
     if (!user || !db || !id) return;
     const updatedExercises = [...exercises];
     const updatedSets = [...updatedExercises[exIndex].sets];
@@ -208,6 +209,7 @@ export default function TrainingDetail() {
       setTraining({ ...training, status: newStatus });
       if (newStatus === 'completed') {
         setCelebrationNumber(undefined);
+        setCelebrationSeed(Math.floor(Math.random() * 1000)); // Zufall im Event-Handler (rein im Render)
         setShowCelebration(true);
         const completedQ = query(
           collection(db, 'users', user.uid, 'trainings'),
@@ -613,6 +615,7 @@ export default function TrainingDetail() {
       <CompletionCelebration
         isOpen={showCelebration}
         trainingNumber={celebrationNumber}
+        messageSeed={celebrationSeed}
         onClose={handleCelebrationClose}
       />
     </div>
