@@ -180,3 +180,8 @@ einer Last-Erhöhung, nicht auf den Trigger.)*
    bewusst keine Deloads). Zahlen ändern nur im Ermüdungsfall.
 6. **Fehlendes RIR → `ask_rir` (Q2):** Statt Dauer-`hold` aktiv nach der Reserve des härtesten
    Satzes fragen, sobald der obere Rand 2× in Folge ohne RIR erreicht wurde.
+7. **Reps-Progression-Flag (`Exercise.repsProgression`):** Für *weighted*-Übungen am Last-Limit
+   (z.B. Maschine am Maschinen-Max wie Abduktor) — die Engine kann das nicht erkennen, daher ein
+   Katalog-Flag (UI-Toggle in `Exercises`). Gesetzt → Policy progressiert über Wiederholungen bei
+   **fixem Gewicht** (reason `load_capped_reps`, kein Wdh-Range-Cap, überstimmt den Last-Sprung).
+   `reps_only` (Bodyweight) verhält sich identisch ohne Flag. Bewusster Edge Case.
