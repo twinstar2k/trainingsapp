@@ -71,9 +71,11 @@ export function buildExerciseContext(input: ExerciseInput, referenceDate: string
     daysSinceLast: last ? daysBetween(last.date, referenceDate) : null,
     lastSession: last
       ? {
+          // Gewicht NUR setzen, wenn vorhanden — bei Bodyweight (reps_only) sonst `weight: undefined`,
+          // was Firestore beim Persistieren des inputDigest ablehnt (→ "INTERNAL").
           sets: last.sets
             .filter((x) => x.reps != null)
-            .map((x) => ({ reps: x.reps as number, weight: x.weight })),
+            .map((x) => (x.weight != null ? { reps: x.reps as number, weight: x.weight } : { reps: x.reps as number })),
         }
       : null,
     lastRir: last?.rir ?? null,

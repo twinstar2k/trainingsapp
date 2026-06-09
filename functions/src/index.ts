@@ -12,6 +12,9 @@ import { getRecommendationFromLlm } from './llm/provider';
 
 admin.initializeApp();
 const db = admin.firestore();
+// `undefined`-Werte beim Schreiben ignorieren statt zu werfen — sonst lässt z.B. ein Bodyweight-Satz
+// ohne `weight` im persistierten inputDigest die ganze Empfehlung mit "INTERNAL" scheitern.
+db.settings({ ignoreUndefinedProperties: true });
 
 const REQUESTY_API_KEY = defineSecret('REQUESTY_API_KEY');
 const BASE_URL = 'https://router.eu.requesty.ai/v1';
