@@ -166,5 +166,146 @@
         }
       ]
     }
+  },
+  {
+    "id": "G-stall-fatigue",
+    "description": "Plateau über 3 Einheiten bei vollem Wdh-Rand, zuletzt bis Versagen (RIR 0). Erwartung: hold/stall_fatigue — Gewicht halten + behutsamer Hinweis auf leichtere Woche, KEIN Last-Sprung, kein Overclaim.",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-david-lloyd",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "maschine-brustpresse",
+          "name": "Maschine Brustpresse",
+          "type": "weighted",
+          "muscleGroup": "Brust",
+          "contextDependent": true,
+          "daysSinceLast": 4,
+          "lastSession": { "sets": [ { "reps": 12, "weight": 80 }, { "reps": 12, "weight": 80 } ] },
+          "lastRir": 0,
+          "best1RM": 112.0,
+          "trend": [
+            { "date": "2026-05-21", "best1RM": 112.0, "maxWeight": 80, "workingReps": 12, "rir": 1 },
+            { "date": "2026-05-28", "best1RM": 112.0, "maxWeight": 80, "workingReps": 12, "rir": 0 },
+            { "date": "2026-06-04", "best1RM": 112.0, "maxWeight": 80, "workingReps": 12, "rir": 0 }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "H-stall-push",
+    "description": "Plateau über 3 Einheiten, Wdh-Rand NICHT voll (10/12) aber noch Reserve (RIR 1). Erwartung: progress_reps/stall_push — eine Wdh mehr, ermutigen, wirklich an den oberen Rand zu gehen.",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-peoples",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "langhantel-bankdruecken",
+          "name": "Langhantel Bankdrücken",
+          "type": "weighted",
+          "muscleGroup": "Brust",
+          "contextDependent": false,
+          "daysSinceLast": 4,
+          "lastSession": { "sets": [ { "reps": 10, "weight": 80 }, { "reps": 10, "weight": 80 } ] },
+          "lastRir": 1,
+          "best1RM": 106.7,
+          "trend": [
+            { "date": "2026-05-21", "best1RM": 106.7, "maxWeight": 80, "workingReps": 10, "rir": 1 },
+            { "date": "2026-05-28", "best1RM": 106.7, "maxWeight": 80, "workingReps": 10, "rir": 1 },
+            { "date": "2026-06-04", "best1RM": 106.7, "maxWeight": 80, "workingReps": 10, "rir": 1 }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "I-ask-rir",
+    "description": "Oberer Wdh-Rand 2× in Folge ohne erfassten RIR. Erwartung: hold/ask_rir — aktiv nach der Reserve des HÄRTESTEN Satzes fragen, Gewicht gehalten, kein Anstrengungs-Overclaim.",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-peoples",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "kurzhantel-schraegbankdruecken",
+          "name": "Kurzhantel Schrägbankdrücken",
+          "type": "weighted",
+          "muscleGroup": "Brust",
+          "contextDependent": false,
+          "daysSinceLast": 5,
+          "lastSession": { "sets": [ { "reps": 12, "weight": 30 }, { "reps": 12, "weight": 30 } ] },
+          "lastRir": null,
+          "best1RM": 42.0,
+          "trend": [
+            { "date": "2026-05-29", "best1RM": 42.0, "maxWeight": 30, "workingReps": 12, "rir": null },
+            { "date": "2026-06-05", "best1RM": 42.0, "maxWeight": 30, "workingReps": 12, "rir": null }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "J-progress-load",
+    "description": "Oberer Wdh-Rand voll erreicht MIT Reserve (RIR 1), Trend steigend. Erwartung: progress_load — +2,5 kg (Oberkörper), Wdh zurück auf 8, innerhalb Cap; Begründung darf 'Reserve' nennen (RIR erfasst).",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-peoples",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "langhantel-rudern-vorgebeugt",
+          "name": "Langhantel Rudern vorgebeugt",
+          "type": "weighted",
+          "muscleGroup": "Rücken",
+          "contextDependent": false,
+          "daysSinceLast": 4,
+          "lastSession": { "sets": [ { "reps": 12, "weight": 80 }, { "reps": 12, "weight": 80 } ] },
+          "lastRir": 1,
+          "best1RM": 112.0,
+          "trend": [
+            { "date": "2026-05-21", "best1RM": 105.0, "maxWeight": 75, "workingReps": 12, "rir": 1 },
+            { "date": "2026-05-28", "best1RM": 108.5, "maxWeight": 77.5, "workingReps": 12, "rir": 1 },
+            { "date": "2026-06-04", "best1RM": 112.0, "maxWeight": 80, "workingReps": 12, "rir": 1 }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "K-reps-only-trend-up",
+    "description": "Bodyweight (reps_only) mit 5 steigenden Einheiten, zuletzt bis Versagen (RIR 0). Erwartung: progress_reps — eine Wdh mehr (17→18) über ALLE Sätze, OHNE Erwähnung eines '8–12'-Bereichs (Progression rein über Reps), Trend 'up' darf benannt werden.",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-david-lloyd",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "beinheben-im-hang",
+          "name": "Beinheben im Hang mit Kontakt",
+          "type": "reps_only",
+          "muscleGroup": "Bauch",
+          "contextDependent": false,
+          "daysSinceLast": 4,
+          "lastSession": { "sets": [ { "reps": 17 }, { "reps": 17 }, { "reps": 17 }, { "reps": 17 } ] },
+          "lastRir": 0,
+          "best1RM": null,
+          "trend": [
+            { "date": "2026-05-14", "best1RM": null, "maxWeight": 0, "workingReps": 13, "rir": 0 },
+            { "date": "2026-05-21", "best1RM": null, "maxWeight": 0, "workingReps": 14, "rir": 0 },
+            { "date": "2026-05-28", "best1RM": null, "maxWeight": 0, "workingReps": 15, "rir": 0 },
+            { "date": "2026-06-01", "best1RM": null, "maxWeight": 0, "workingReps": 16, "rir": 0 },
+            { "date": "2026-06-04", "best1RM": null, "maxWeight": 0, "workingReps": 17, "rir": 0 }
+          ]
+        }
+      ]
+    }
   }
 ]
