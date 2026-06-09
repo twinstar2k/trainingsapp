@@ -38,6 +38,9 @@ interface RequestData {
 
 const MAX_EXERCISES = 12;
 
+// Coaching-Reason-Codes der Trend-/Plateau-Schicht — fürs Audit als Flag mitschreiben.
+const COACH_REASONS = new Set(['ask_rir', 'stall_fatigue', 'stall_push', 'stall_no_rir']);
+
 export const getTrainingRecommendation = onCall(
   { region: 'europe-west3', secrets: [REQUESTY_API_KEY] },
   async (request: CallableRequest<Partial<RequestData>>) => {
@@ -131,6 +134,10 @@ export const getTrainingRecommendation = onCall(
     const payload = clampPayload(cleaned, guard);
     const flags = [
       ...plans.map((p) => `action:${p.action}:${p.exerciseId}`),
+      ...plans.filter((p) => COACH_REASONS.has(p.reason)).map((p) => `reason:${p.reason}:${p.exerciseId}`),
+      ...plans
+        .filter((p) => p.trend && p.trend.direction !== 'building')
+        .map((p) => `trend:${p.trend!.direction}:${p.exerciseId}`),
       ...guard.clamps.map((c) => `clamped:${c.exerciseId}`),
       ...guard.starters.map((s) => `starter:${s}`),
       ...guard.violations.map((v) => `violation:${v}`),

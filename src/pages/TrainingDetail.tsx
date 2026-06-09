@@ -469,7 +469,7 @@ export default function TrainingDetail() {
                 (isActive || ex.rir != null) && (
                   <div
                     className="flex items-center justify-between gap-2 pt-1"
-                    title="Wie viele Wiederholungen wären am letzten Satz noch drin gewesen?"
+                    title="Wie viele Wiederholungen wären in deinem härtesten Satz noch drin gewesen?"
                   >
                     <span className="text-xs font-semibold text-outline uppercase tracking-wider">Reserve</span>
                     <div className="flex gap-1">
