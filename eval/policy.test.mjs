@@ -13,7 +13,10 @@ if (!existsSync(POLICY_URL)) {
   console.error('✗ Kompilierte Policy fehlt. Bitte zuerst bauen:  cd ../functions && npx tsc');
   process.exit(2);
 }
-const { computeExercisePlan, describePlan, isLowerBody, incrementForMuscleGroup } = await import(POLICY_URL);
+const { computeExercisePlan, describePlan, isLowerBody, incrementForMuscleGroup, computeTrend } = await import(POLICY_URL);
+
+/** Trend-Punkt-Helfer (ascending übergeben: ältester → neuester). */
+const tp = (maxWeight, workingReps, rir = null) => ({ date: '2026-01-01', best1RM: null, maxWeight, workingReps, rir });
 
 const base = {
   exerciseId: 'x', name: 'n', type: 'weighted', muscleGroup: 'Brust',
@@ -71,9 +74,57 @@ check('K Ziel maintenance -> wie zuletzt @60 reps8', p.action === 'maintain' && 
 p = computeExercisePlan({ ...base, lastSession: sess([{ reps: 6, weight: 100 }]), lastRir: 1 }, 'strength');
 check('L Ziel strength (Range 4–6): gefüllt + Reserve -> progress_load @102.5 reps4', p.action === 'progress_load' && p.sets[0].weight === 102.5 && p.sets[0].reps === 4, p);
 
+// ── Trend-/Plateau-Schicht (über mehrere Einheiten) ──────────────────────────────
+// computeTrend: Richtung + stalledSessions (Progress-Index maxWeight*100 + workingReps).
+let t = computeTrend([tp(80, 10), tp(80, 11), tp(80, 12)]);
+check('N1 Trend steigend (Wdh klettern) -> up', t.direction === 'up' && t.exposures === 3 && t.stalledSessions === 0, t);
+t = computeTrend([tp(80, 12), tp(80, 12), tp(80, 12)]);
+check('N2 Trend flach -> flat, stalled=2', t.direction === 'flat' && t.stalledSessions === 2, t);
+t = computeTrend([tp(80, 12), tp(80, 10), tp(80, 9)]);
+check('N3 Trend abfallend -> down', t.direction === 'down', t);
+t = computeTrend([tp(80, 12), tp(80, 12)]);
+check('N4 < 3 Exposures -> building (keine Aussage)', t.direction === 'building' && t.exposures === 2, t);
+// Sägezahn-Schutz: Last-Erhöhung mit Wdh-Reset (12→8) darf NICHT als Abfall gelten.
+t = computeTrend([tp(80, 12), tp(82.5, 8), tp(82.5, 9)]);
+check('N5 Last-Sprung + Wdh-Reset -> up (kein Fake-Plateau)', t.direction === 'up' && t.stalledSessions === 0, t);
+
+// Plateau-Reaktion im Gesamtplan:
+const flat80 = [tp(80, 12), tp(80, 12), tp(80, 12, 0)];
+p = computeExercisePlan({ ...base, trend: flat80, lastSession: sess([{ reps: 12, weight: 80 }, { reps: 12, weight: 80 }]), lastRir: 0 }, 'progression');
+check('O Plateau + Versagen -> hold/stall_fatigue @80 reps12', p.action === 'hold' && p.reason === 'stall_fatigue' && p.sets[0].weight === 80 && p.sets[0].reps === 12, p);
+
+const flat80reps = [tp(80, 10, 1), tp(80, 10, 1), tp(80, 10, 1)];
+p = computeExercisePlan({ ...base, trend: flat80reps, lastSession: sess([{ reps: 10, weight: 80 }, { reps: 10, weight: 80 }]), lastRir: 1 }, 'progression');
+check('P Plateau + Reserve -> progress_reps/stall_push @80 reps11', p.action === 'progress_reps' && p.reason === 'stall_push' && p.sets[0].reps === 11, p);
+
+const flat80none = [tp(80, 10), tp(80, 10), tp(80, 10)];
+p = computeExercisePlan({ ...base, trend: flat80none, lastSession: sess([{ reps: 10, weight: 80 }, { reps: 10, weight: 80 }]), lastRir: null }, 'progression');
+check('Q Plateau + kein RIR -> progress_reps/stall_no_rir', p.action === 'progress_reps' && p.reason === 'stall_no_rir' && p.sets[0].reps === 11, p);
+
+// ask_rir: 2× oberer Rand ohne RIR in Folge → aktiv nach Reserve fragen.
+const filledNoRir2 = [tp(80, 12), tp(80, 12)];
+p = computeExercisePlan({ ...base, trend: filledNoRir2, lastSession: sess([{ reps: 12, weight: 80 }, { reps: 12, weight: 80 }]), lastRir: null }, 'progression');
+check('R 2× oberer Rand ohne RIR -> ask_rir @80', p.action === 'hold' && p.reason === 'ask_rir' && p.sets[0].weight === 80, p);
+
+// no_rir (1. Mal, kein Vorgänger mit gefülltem Rand) bleibt no_rir.
+p = computeExercisePlan({ ...base, trend: [tp(80, 9), tp(80, 12)], lastSession: sess([{ reps: 12, weight: 80 }]), lastRir: null }, 'progression');
+check('S 1× oberer Rand ohne RIR -> no_rir (nicht ask_rir)', p.reason === 'no_rir', p);
+
+// progress_load wird NICHT von altem flachem Trend überstimmt.
+p = computeExercisePlan({ ...base, trend: [tp(80, 12), tp(80, 12), tp(80, 12)], lastSession: sess([{ reps: 12, weight: 80 }, { reps: 12, weight: 80 }]), lastRir: 1 }, 'progression');
+check('T Range gefüllt + Reserve schlägt flachen Trend -> progress_load', p.action === 'progress_load' && p.reason === 'range_filled_reserve', p);
+
+// Rebuild nach Last-Sprung: kein Plateau-Flag, sauberes progress_reps.
+p = computeExercisePlan({ ...base, trend: [tp(80, 12), tp(82.5, 8), tp(82.5, 9)], lastSession: sess([{ reps: 9, weight: 82.5 }, { reps: 9, weight: 82.5 }]), lastRir: 1 }, 'progression');
+check('U Rebuild nach Last-Sprung -> progress_reps (kein stall)', p.action === 'progress_reps' && p.reason === 'range_not_filled' && p.sets[0].reps === 10, p);
+
 // ── describePlan (Fallback-Begründung) ───────────────────────────────────────────
 p = computeExercisePlan({ ...base, lastSession: sess([{ reps: 12, weight: 80 }]), lastRir: 1 }, 'progression');
 check('M describePlan liefert Text', typeof describePlan(p) === 'string' && describePlan(p).length > 10, describePlan(p));
+for (const reason of ['ask_rir', 'stall_fatigue', 'stall_push', 'stall_no_rir']) {
+  const txt = describePlan({ action: 'hold', reason, increment: 0, repRange: [8, 12], sets: [{ reps: 12, weight: 80 }] });
+  check(`M+ describePlan(${reason}) liefert Text`, typeof txt === 'string' && txt.length > 20, txt);
+}
 
 console.log(`\nPolicy-Regressionstest: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
