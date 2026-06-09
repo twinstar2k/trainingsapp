@@ -1,7 +1,8 @@
 # KI-Coach-Engine (Stufe 1.5)
 
-**Status:** Konzept · **Stand:** 2026-06-08 · **Basis:** Stufe 1 (`docs/architecture/ai-recommendation.md`)
-**Branch (geplant):** `feat/ai-coach-engine` (auf Basis des aktuellen `feat/ai-recommendation`)
+**Status:** umgesetzt (P1 + P1.5), noch nicht deployt · **Stand:** 2026-06-09 · **Basis:** Stufe 1 (`docs/architecture/ai-recommendation.md`)
+**Branch:** `feat/ai-coach-engine`
+**Trainingswissenschaftliche Grundlage:** `docs/architecture/progressionsstrategien-krafttraining.md` (ACSM 2026).
 
 Konsolidiert für diese Iteration Requirements + Architektur in einem Dokument.
 
@@ -74,8 +75,36 @@ letzter RIR, Region.
 4. **Cap-Sicherung (bleibt als Netz):** erhöhte Last nie > `min(+10 %, +5 kg)` ggü. letzter Session.
    Die Inkremente liegen ohnehin darunter.
 
-**Policy-Output je Übung:** `{ sets:[{weight,reps}], action, reasonCode, increment, repRange }` → geht
+**Policy-Output je Übung:** `{ sets:[{weight,reps}], action, reasonCode, increment, repRange, trend }` → geht
 als Vorgabe ins LLM (Schicht C) und in die persistierte Empfehlung (Audit).
+
+## 4.1 Trend-/Plateau-Schicht (über mehrere Einheiten) ✅ implementiert
+
+Die §4-Logik entscheidet *innerhalb* einer Einheit. Darüber liegt eine zweite Schicht, die den
+**Verlauf der letzten 3–5 vergleichbaren Exposures** bewertet — das macht aus dem Rechner einen Coach
+(vgl. `progressionsstrategien-krafttraining.md` §6.2/§8/§14: „Trend vor Einzeldatum").
+
+**Trend-Metrik = Progress-Index `maxWeight×100 + workingReps`** — bewusst **nicht** Epley-e1RM.
+Begründung: Nach einer Last-Erhöhung mit Wdh-Reset (12→8) **fällt** der Epley-Wert kurz und würde
+einen *gesunden* Double-Progression-Zyklus fälschlich als Plateau lesen. Der Index dagegen steigt bei
+**jeder** echten Steigerung (Last *oder* Wdh) → robust gegen den Sägezahn. (Offline-Test deckt genau
+diesen Fall ab.)
+
+- **Richtung** über das jüngste 3er-Fenster: `up` / `flat` / `down`; `building` bei < 3 Exposures
+  (dann keine Plateau-Aussage). `stalledSessions` = jüngste Einheiten ohne neuen Bestwert.
+- **Plateau** = `flat`/`down` über ≥ 3 Exposures. Reaktion nach RIR der jüngsten Einheiten:
+  - **Versagen erreicht (RIR 0), trotzdem flach → `stall_fatigue`:** Last halten (kein weiteres Pushen),
+    Coach weist **behutsam** auf eine leichtere Woche hin. **Kein Auto-Deload** — der Nutzer entscheidet.
+  - **Noch Reserve (RIR ≥ 1), trotzdem flach → `stall_push`:** „die Wdh wirklich an den oberen Rand"
+    (Reiz war zu niedrig), Zahlen bleiben (progress_reps).
+  - **Kein RIR → `stall_no_rir`:** bitten zu loggen, um Ermüdung von Luft-nach-oben zu trennen.
+- **Zahlen ändert die Trend-Schicht nur im Ermüdungsfall** (halten statt +1 Wdh); sonst nur den
+  Reason-Code → Coach-Sprache. `progress_load` (echte Steigerung jetzt) wird von altem flachem Trend
+  **nicht** überstimmt.
+
+**ask_rir (Sackgassen-Auflösung, Entscheidung Q2):** Wird der obere Wdh-Rand **2× in Folge ohne RIR**
+erreicht, hängt die strikte Regel sonst ewig auf `hold`. Stattdessen fordert die Empfehlung dann **aktiv
+die Reserve des härtesten Satzes** ein (`ask_rir`) — behält den Logging-Nudge, beendet die Sackgasse.
 
 ## 5. Rep-Ranges pro Ziel (entschieden)
 
@@ -105,26 +134,49 @@ einer Last-Erhöhung, nicht auf den Trigger.)*
 
 - **`TrainingExercise.rir?: 0 | 1 | 2`** (pro Übung; sitzt bei `restSeconds`). Optional.
 - **`PastSession.rir` / `ExerciseContext.lastRir`** durchreichen (`fetchSessions` + `context.ts`).
+- **`ExerciseContext.trend: TrendPoint[]`** je Exposure um **`workingReps` + `rir`** angereichert
+  (vorher nur `best1RM`/`maxWeight`) — Datenbasis der Trend-Schicht (§4.1). `context.ts` berechnet
+  `workingReps` (Wdh am Arbeitsgewicht) pro Einheit vor.
+- **`ExercisePlan.trend?: TrendSummary`** (Richtung/Exposures/stalledSessions) — fürs Coaching + Audit.
 - **Region** in der Policy aus `muscleGroup` ableiten — **kein** Schema-Change an `Exercise`.
 - **Firestore Rules:** `rir` liegt im bestehenden Trainings-Subtree → bereits abgedeckt.
 
 ## 8. Erfassungs-UX (RIR)
 
 - In `TrainingDetail`, pro Übung, niedrigschwellig: kompaktes 3-Segment-Control
-  („2+ Reserve · 1 Reserve · Versagen"). Optional, überspringbar.
+  („2+ Reserve · 1 Reserve · Versagen"). Optional, überspringbar. RIR = Reserve im **härtesten**
+  Arbeitssatz (Tooltip entsprechend formuliert).
 - **Fehlt RIR** → Policy konservativ: `progress_reps` erlaubt, **`progress_load` nur mit explizitem
-  RIR ≥ 1**. (Kein Last-Sprung ohne bestätigte Reserve.) — **entschieden**.
+  RIR ≥ 1**. Wird der obere Rand **2× in Folge ohne RIR** erreicht → **`ask_rir`** (aktiv nach der
+  Reserve fragen, siehe §4.1) statt stiller Dauerschleife. — **entschieden (Q2)**.
 
 ## 9. Phasenplan
 
-- **P1 (dieser Branch):** RIR-Erfassung · Policy-Modul (Trigger + Inkrement + Wdh-Reset) ·
+- **P1 (✅ umgesetzt):** RIR-Erfassung · Policy-Modul (Trigger + Inkrement + Wdh-Reset) ·
   Policy-first-Integration · Prompt ausdünnen · Eval-Szenarien erweitern · Redeploy.
-- **P2 (später):** Stall-/Deload-Erkennung · Volumen-Progression · weitere Stellschrauben als
-  LLM-Vorschläge · Rep-Range/Inkrement pro Übung konfigurierbar.
+- **P1.5 (✅ umgesetzt, dieser Branch):** **Trend-/Plateau-Erkennung** (§4.1) über 3–5 Exposures ·
+  Plateau-Reaktion (`stall_fatigue`/`stall_push`/`stall_no_rir`, soft, kein Auto-Deload) ·
+  **`ask_rir`** (Q2) · Trend-Hinweis im Prompt · Audit-Flags.
+- **P2 (später):** Hard-Set-/Volumen-Manager pro Muskelgruppe/Woche (braucht Wochen-Aggregation) ·
+  Schmerz-/Readiness-/Technik-Erfassung → harte Deload-/Override-Trigger · Übungswechsel-Engine ·
+  Rep-Range/Inkrement pro Übung & Equipment konfigurierbar (Microloading) · RIR-Kalibrierung ·
+  weitere Ziele exzellent machen (Maximalkraft etc.). Begründung der Priorisierung: für den
+  **natürlichen** Sportler konvergieren Progression und Hypertrophie → Progressions-Kern zuerst.
 
-## 10. Entscheidungen (2026-06-08)
+## 10. Entscheidungen
 
+**2026-06-08 (P1):**
 1. **Rep-Range `progression`: 8–12** (Floor 6→8).
-2. **Stall-/Deload-Erkennung: erst P2.** P1 bleibt auf den Progressions-Kern fokussiert.
-3. **Fehlendes RIR:** `progress_load` nur mit explizit bestätigter Reserve (RIR ≥ 1); ohne RIR
+2. **Fehlendes RIR:** `progress_load` nur mit explizit bestätigter Reserve (RIR ≥ 1); ohne RIR
    höchstens `progress_reps`.
+
+**2026-06-09 (P1.5, nach Abgleich mit `progressionsstrategien-krafttraining.md`):**
+3. **Scope: Trend + Plateau jetzt** (statt nur testen) — parallel zum Deployen, weil der
+   Progressions-Pfad ohnehin Trainingstage zum Testen braucht. **Kein** Volumen-Hinweis in P1.5
+   (eigene Achse, P2).
+4. **Trend-Metrik = Progress-Index** (`maxWeight×100 + workingReps`), **nicht** Epley-e1RM —
+   sonst Fake-Plateau nach jedem Last-Sprung (§4.1).
+5. **Plateau-Reaktion ist soft:** Hinweis auf leichtere Woche, **kein Auto-Deload** (Nutzer macht
+   bewusst keine Deloads). Zahlen ändern nur im Ermüdungsfall.
+6. **Fehlendes RIR → `ask_rir` (Q2):** Statt Dauer-`hold` aktiv nach der Reserve des härtesten
+   Satzes fragen, sobald der obere Rand 2× in Folge ohne RIR erreicht wurde.
