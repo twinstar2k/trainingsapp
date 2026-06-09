@@ -37,7 +37,8 @@ export default function TrainingDetail() {
   const [showDeleteTraining, setShowDeleteTraining] = useState(false);
   const [celebrationNumber, setCelebrationNumber] = useState<number | undefined>(undefined);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [showRecommendation, setShowRecommendation] = useState(false);
+  // KI-Empfehlung ist pro Übung: hält die Katalog-ID der Übung, für die der Dialog offen ist.
+  const [recommendExerciseId, setRecommendExerciseId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !db || !id) return;
@@ -463,6 +464,17 @@ export default function TrainingDetail() {
                 </button>
               )}
 
+              {/* KI-Empfehlung pro Übung (Feature-Flag) — nur solange die Übung noch leer ist. */}
+              {isActive && AI_RECOMMENDATIONS_ENABLED && ex.sets.length === 0 && (
+                <button
+                  onClick={() => setRecommendExerciseId(ex.details.id)}
+                  className="w-full py-2.5 mt-2 border border-primary/30 rounded-xl text-primary font-semibold text-sm flex items-center justify-center hover:bg-primary/5 transition-all duration-150"
+                >
+                  <Sparkles className="w-4 h-4 mr-1.5" />
+                  KI-Empfehlung
+                </button>
+              )}
+
               {/* Reserve (RIR) — Signal für die KI-Autoregulation. Optional. */}
               {(ex.details.type === 'weighted' || ex.details.type === 'reps_only') &&
                 ex.sets.length > 0 &&
@@ -504,17 +516,6 @@ export default function TrainingDetail() {
         >
           <Plus className="w-5 h-5 mr-2 text-primary" />
           Übung hinzufügen
-        </button>
-      )}
-
-      {/* KI-Empfehlung (Feature-Flag) */}
-      {isActive && AI_RECOMMENDATIONS_ENABLED && exercises.length > 0 && (
-        <button
-          onClick={() => setShowRecommendation(true)}
-          className="w-full bg-surface-container-lowest border border-primary/30 text-primary p-4 rounded-2xl flex items-center justify-center font-bold hover:bg-primary/5 transition-all duration-150 shadow-sm"
-        >
-          <Sparkles className="w-5 h-5 mr-2" />
-          KI-Empfehlung holen
         </button>
       )}
 
@@ -597,13 +598,15 @@ export default function TrainingDetail() {
         onCancel={() => setShowDeleteTraining(false)}
       />
 
-      {showRecommendation && training && (
+      {recommendExerciseId && training && (
         <RecommendationDialog
           studioId={training.studioId}
           date={training.date}
-          exercises={exercises.map((e) => ({ exerciseId: e.details.id, name: e.details.name, type: e.details.type }))}
+          exercises={exercises
+            .filter((e) => e.details.id === recommendExerciseId)
+            .map((e) => ({ exerciseId: e.details.id, name: e.details.name, type: e.details.type }))}
           onApply={applyRecommendation}
-          onClose={() => setShowRecommendation(false)}
+          onClose={() => setRecommendExerciseId(null)}
         />
       )}
 
