@@ -21,6 +21,18 @@ export type GoalKey =
  */
 export type RirLevel = 0 | 1 | 2;
 
+/**
+ * Eine vergangene Einheit als Trend-Punkt — verdichtet auf das, was der Policy-Kern für
+ * Trend-/Plateau-Erkennung braucht (Stufe 1.5). Ascending nach Datum, letzte 3–5.
+ */
+export interface TrendPoint {
+  date: string;
+  best1RM: number | null; // Epley-Schätzung des besten Satzes (nur reps ≤ 15)
+  maxWeight: number; // Arbeitsgewicht der Einheit (höchstes Satzgewicht)
+  workingReps: number | null; // Wdh am Arbeitsgewicht (min über die Top-Sätze); reps_only: min Wdh
+  rir: RirLevel | null; // erfasste Anstrengung dieser Einheit
+}
+
 /** Kuratierter Verlaufs-Kontext einer Übung — Input fürs LLM (klein gehalten). */
 export interface ExerciseContext {
   exerciseId: string;
@@ -32,7 +44,7 @@ export interface ExerciseContext {
   lastSession: { sets: Array<{ reps: number; weight?: number }> } | null;
   lastRir: RirLevel | null; // RIR der letzten Einheit — Signal für Autoregulation
   best1RM: number | null;
-  trend: Array<{ date: string; best1RM: number | null; maxWeight: number }>; // letzte 3–5
+  trend: TrendPoint[]; // letzte 3–5 Einheiten (ascending), für Trend-/Plateau-Erkennung
 }
 
 /** Gesamter Trainingszustand, den das LLM als Kontext erhält. */
@@ -76,14 +88,28 @@ export type PlanAction =
   | 'deload' // Ziel deload → Last senken
   | 'maintain'; // Ziel maintenance / Fallback → wie zuletzt
 
+/**
+ * Leistungsrichtung über die letzten vergleichbaren Einheiten (Stufe 1.5, Trend-Schicht).
+ * 'building' = noch zu wenige Exposures (< 3) für eine belastbare Aussage.
+ */
+export type ProgressDirection = 'up' | 'flat' | 'down' | 'building';
+
+/** Verdichteter Trend einer Übung — vom Policy-Kern berechnet, fürs Coaching/Audit. */
+export interface TrendSummary {
+  direction: ProgressDirection;
+  exposures: number; // Anzahl betrachteter vergleichbarer Einheiten
+  stalledSessions: number; // jüngste Einheiten in Folge ohne neuen Bestwert
+}
+
 /** Ergebnis des Policy-Kerns je Übung (deterministisch berechnet). */
 export interface ExercisePlan {
   exerciseId: string;
   action: PlanAction;
-  reason: string; // Maschinen-Code, z.B. 'range_filled_reserve'
+  reason: string; // Maschinen-Code, z.B. 'range_filled_reserve' / 'stall_fatigue' / 'ask_rir'
   repRange: [number, number] | null;
   increment: number; // kg-Schritt der Last-Erhöhung (0 wenn keine)
   sets: RecommendedSet[]; // berechnete Sätze ([] bei 'starter' → LLM füllt)
+  trend?: TrendSummary; // Trend-/Plateau-Befund (Stufe 1.5)
 }
 
 /** Persistiertes Empfehlungs-Dokument (users/{uid}/recommendations) — Audit/Eval/Transparenz. */

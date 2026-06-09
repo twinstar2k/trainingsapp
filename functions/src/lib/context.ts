@@ -28,6 +28,19 @@ function daysBetween(a: string, b: string): number {
   return Math.round(ms / 86_400_000);
 }
 
+/**
+ * Wiederholungen am Arbeitsgewicht einer Einheit (min über die Top-Sätze) — derselbe
+ * Trigger-Wert wie im Policy-Kern, hier pro Trend-Punkt vorberechnet. Bei reps_only
+ * (kein Gewicht) die min Wdh über alle Sätze. null, wenn keine gültigen Sätze.
+ */
+function workingRepsOf(sets: Array<{ reps?: number; weight?: number }>): number | null {
+  const valid = sets.filter((s) => s.reps != null) as Array<{ reps: number; weight?: number }>;
+  if (valid.length === 0) return null;
+  const maxWeight = Math.max(...valid.map((s) => s.weight ?? 0));
+  const topSets = maxWeight > 0 ? valid.filter((s) => (s.weight ?? 0) >= maxWeight) : valid;
+  return Math.min(...topSets.map((s) => s.reps));
+}
+
 export function buildExerciseContext(input: ExerciseInput, referenceDate: string): ExerciseContext {
   const sessions = [...input.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)); // desc nach Datum
   const last = sessions[0] ?? null;
@@ -40,11 +53,13 @@ export function buildExerciseContext(input: ExerciseInput, referenceDate: string
 
   const trend = sessions
     .slice(0, 5)
-    .reverse() // aufsteigend für die Anzeige
+    .reverse() // aufsteigend (älteste → neueste) für Trend-Erkennung
     .map((s) => ({
       date: s.date,
       best1RM: bestSessionOneRM(s.sets),
       maxWeight: sessionMaxWeight(s.sets),
+      workingReps: workingRepsOf(s.sets),
+      rir: s.rir ?? null,
     }));
 
   return {
