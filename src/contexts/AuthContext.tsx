@@ -17,6 +17,9 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+// Context + Hook bewusst kolokiert; Auslagern würde durch ~10 Importstellen rippeln.
+// react-refresh ist eine Hot-Reload-DX-Regel (keine Korrektheit) → hier deaktiviert.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -62,12 +65,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error signing in with Google", error);
-      if (error.code === 'auth/unauthorized-domain') {
+      const code = (error as { code?: string })?.code;
+      const message = error instanceof Error ? error.message : String(error);
+      if (code === 'auth/unauthorized-domain') {
         alert(`Firebase Error: Unauthorized Domain.\n\nPlease add this domain to your Firebase Console:\n1. Go to Authentication > Settings > Authorized domains\n2. Add: ${window.location.hostname}`);
       } else {
-        alert(`Error signing in: ${error.message}`);
+        alert(`Error signing in: ${message}`);
       }
     }
   };

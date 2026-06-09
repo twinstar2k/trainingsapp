@@ -2,15 +2,24 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, where, getDocs, getCountFromServer, doc, getDoc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
-import { Training, TrainingExercise, TrainingSet, Exercise } from '../types';
+import { Training, TrainingExercise, TrainingSet, Exercise, RecommendationPayload, RirLevel } from '../types';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Check, Plus, Trash2, X, Search, CheckCircle2, Circle } from 'lucide-react';
+import { Check, Plus, Trash2, X, Search, CheckCircle2, Circle, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { CompletionCelebration } from '../components/ui/CompletionCelebration';
 import { LastSessionLabel } from '../components/LastSessionLabel';
+import { RecommendationDialog } from '../components/ai/RecommendationDialog';
+import { AI_RECOMMENDATIONS_ENABLED } from '../lib/featureFlags';
+
+// Reserve (RIR) am Satzende — Signal für die KI-Autoregulation. 2 = 2+ in Reserve … 0 = Versagen.
+const RIR_OPTIONS: { value: RirLevel; label: string }[] = [
+  { value: 2, label: '2+ Wdh' },
+  { value: 1, label: '1 Wdh' },
+  { value: 0, label: 'Versagen' },
+];
 
 export default function TrainingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +36,10 @@ export default function TrainingDetail() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteTraining, setShowDeleteTraining] = useState(false);
   const [celebrationNumber, setCelebrationNumber] = useState<number | undefined>(undefined);
+  const [celebrationSeed, setCelebrationSeed] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
+  // KI-Empfehlung ist pro Übung: hält die Katalog-ID der Übung, für die der Dialog offen ist.
+  const [recommendExerciseId, setRecommendExerciseId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !db || !id) return;
@@ -113,7 +125,7 @@ export default function TrainingDetail() {
     const setsRef = collection(db, 'users', user.uid, 'trainings', id, 'exercises', exerciseId, 'sets');
     const newOrder = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => s.order)) + 1 : 0;
 
-    let newSetData: Partial<TrainingSet> = { order: newOrder, status: 'open' };
+    const newSetData: Partial<TrainingSet> = { order: newOrder, status: 'open' };
     if (exercise.sets.length > 0) {
       const lastSet = exercise.sets[exercise.sets.length - 1];
       if (lastSet.reps !== undefined) newSetData.reps = lastSet.reps;
@@ -139,7 +151,7 @@ export default function TrainingDetail() {
     }
   };
 
-  const handleUpdateSet = async (exerciseId: string, exIndex: number, setId: string, setIndex: number, field: keyof TrainingSet, value: any) => {
+  const handleUpdateSet = async <K extends keyof TrainingSet>(exerciseId: string, exIndex: number, setId: string, setIndex: number, field: K, value: TrainingSet[K]) => {
     if (!user || !db || !id) return;
     const updatedExercises = [...exercises];
     const updatedSets = [...updatedExercises[exIndex].sets];
@@ -175,6 +187,20 @@ export default function TrainingDetail() {
     await handleUpdateSet(exerciseId, exIndex, setId, setIndex, 'status', currentStatus === 'open' ? 'done' : 'open');
   };
 
+  // Reserve (RIR) der Übung erfassen — pro Übung ein Wert, optional. Speist die KI-Autoregulation.
+  const handleSetRir = async (exerciseId: string, exIndex: number, rir: RirLevel) => {
+    if (!user || !db || !id) return;
+    const updated = [...exercises];
+    updated[exIndex] = { ...updated[exIndex], rir };
+    setExercises(updated);
+    try {
+      const exRef = doc(db, 'users', user.uid, 'trainings', id, 'exercises', exerciseId);
+      await updateDoc(exRef, { rir });
+    } catch (error) {
+      console.error('Error updating RIR:', error);
+    }
+  };
+
   const toggleTrainingStatus = async () => {
     if (!user || !db || !id || !training) return;
     const newStatus = training.status === 'active' ? 'completed' : 'active';
@@ -183,6 +209,7 @@ export default function TrainingDetail() {
       setTraining({ ...training, status: newStatus });
       if (newStatus === 'completed') {
         setCelebrationNumber(undefined);
+        setCelebrationSeed(Math.floor(Math.random() * 1000)); // Zufall im Event-Handler (rein im Render)
         setShowCelebration(true);
         const completedQ = query(
           collection(db, 'users', user.uid, 'trainings'),
@@ -210,6 +237,34 @@ export default function TrainingDetail() {
     } catch (error) {
       console.error("Error deleting training:", error);
     }
+  };
+
+  // Übernimmt eine (ggf. angepasste) KI-Empfehlung: hängt die vorgeschlagenen Sätze an die
+  // jeweiligen Übungen an (bestehender addDoc-Pfad) und setzt die empfohlene Pause.
+  const applyRecommendation = async (payload: RecommendationPayload) => {
+    if (!user || !db || !id) return;
+    const updated = [...exercises];
+    for (const rec of payload.exercises) {
+      const exIndex = updated.findIndex((e) => e.exerciseId === rec.exerciseId);
+      if (exIndex < 0) continue;
+      const ex = updated[exIndex];
+      const setsRef = collection(db, 'users', user.uid, 'trainings', id, 'exercises', ex.id, 'sets');
+      let order = ex.sets.length > 0 ? Math.max(...ex.sets.map((s) => s.order)) + 1 : 0;
+      const created: TrainingSet[] = [];
+      for (const rs of rec.sets) {
+        const setData: Partial<TrainingSet> = { order: order++, status: 'open', reps: rs.reps };
+        if (ex.details.type === 'weighted' && rs.weight != null) setData.weight = rs.weight;
+        const docRef = await addDoc(setsRef, setData);
+        created.push({ id: docRef.id, ...setData } as TrainingSet);
+      }
+      if (rec.restSeconds != null) {
+        await updateDoc(doc(db, 'users', user.uid, 'trainings', id, 'exercises', ex.id), {
+          restSeconds: rec.restSeconds,
+        });
+      }
+      updated[exIndex] = { ...ex, restSeconds: rec.restSeconds, sets: [...ex.sets, ...created] };
+    }
+    setExercises(updated);
   };
 
   if (loading) return <div className="text-center py-12 text-on-surface-variant">Lade Training...</div>;
@@ -410,6 +465,46 @@ export default function TrainingDetail() {
                   Satz hinzufügen
                 </button>
               )}
+
+              {/* KI-Empfehlung pro Übung (Feature-Flag) — nur solange die Übung noch leer ist. */}
+              {isActive && AI_RECOMMENDATIONS_ENABLED && ex.sets.length === 0 && (
+                <button
+                  onClick={() => setRecommendExerciseId(ex.details.id)}
+                  className="w-full py-2.5 mt-2 border border-primary/30 rounded-xl text-primary font-semibold text-sm flex items-center justify-center hover:bg-primary/5 transition-all duration-150"
+                >
+                  <Sparkles className="w-4 h-4 mr-1.5" />
+                  KI-Empfehlung
+                </button>
+              )}
+
+              {/* Reserve (RIR) — Signal für die KI-Autoregulation. Optional. */}
+              {(ex.details.type === 'weighted' || ex.details.type === 'reps_only') &&
+                ex.sets.length > 0 &&
+                (isActive || ex.rir != null) && (
+                  <div
+                    className="flex items-center justify-between gap-2 pt-1"
+                    title="Wie viele Wiederholungen wären in deinem härtesten Satz noch drin gewesen?"
+                  >
+                    <span className="text-xs font-semibold text-outline uppercase tracking-wider">Reserve</span>
+                    <div className="flex gap-1">
+                      {RIR_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => handleSetRir(ex.id, exIndex, opt.value)}
+                          disabled={!isActive}
+                          className={cn(
+                            'px-3 py-1.5 rounded-xl text-xs font-bold transition-colors duration-150 disabled:cursor-not-allowed',
+                            ex.rir === opt.value
+                              ? 'bg-primary text-on-primary'
+                              : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high disabled:opacity-60',
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
         ))}
@@ -505,9 +600,22 @@ export default function TrainingDetail() {
         onCancel={() => setShowDeleteTraining(false)}
       />
 
+      {recommendExerciseId && training && (
+        <RecommendationDialog
+          studioId={training.studioId}
+          date={training.date}
+          exercises={exercises
+            .filter((e) => e.details.id === recommendExerciseId)
+            .map((e) => ({ exerciseId: e.details.id, name: e.details.name, type: e.details.type }))}
+          onApply={applyRecommendation}
+          onClose={() => setRecommendExerciseId(null)}
+        />
+      )}
+
       <CompletionCelebration
         isOpen={showCelebration}
         trainingNumber={celebrationNumber}
+        messageSeed={celebrationSeed}
         onClose={handleCelebrationClose}
       />
     </div>

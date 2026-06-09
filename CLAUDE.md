@@ -17,7 +17,9 @@ Lies `docs/PROJECT-CONTEXT.md` für den vollständigen fachlichen und technische
 - **Auth:** Firebase Authentication (Google Login via `signInWithPopup`)
 - **Datenbank:** Cloud Firestore
 - **Hosting:** Firebase Hosting
-- **Backend:** Keins (Firestore Security Rules steuern Zugriff)
+- **Backend:** Cloud Functions (`functions/`, europe-west3, Node 22, firebase-functions v7) — Callable `getTrainingRecommendation` für die KI-Empfehlung. Sonstiger Datenzugriff weiterhin direkt via Firestore Security Rules.
+- **Geteilter Code:** `shared/` (Metriken + KI-Vertragstypen + Policy-Kern) — Single Source für App UND Functions (ADR-04).
+- **LLM:** EU-Gateway Requesty (`router.eu.requesty.ai`, OpenAI-kompatibel), Secret `REQUESTY_API_KEY` in Google Secret Manager. Feature-Flag `VITE_AI_RECOMMENDATIONS` (default AUS).
 
 ## Projektstruktur
 
@@ -56,9 +58,17 @@ trainingsapp/
 │   │   ├── Exercises.tsx
 │   │   ├── Weight.tsx
 │   │   └── Profile.tsx
-│   ├── types/index.ts                 ← Alle TypeScript-Typen
+│   ├── components/ai/                 ← RecommendationDialog + Preview (KI-Empfehlung)
+│   ├── types/index.ts                 ← Alle TS-Typen (re-exportiert shared/ai-types)
 │   ├── utils/metrics.ts               ← Epley 1RM, Volumen, Label-Formatierung
 │   └── App.tsx                        ← Router + ProtectedRoute
+├── shared/                            ← Single Source für App + Functions (ADR-04)
+│   ├── ai-types.ts                    ← KI-Vertragstypen (Context/Plan/Payload)
+│   ├── metrics.ts                     ← geteilte Metrik-Funktionen
+│   └── policy.ts                      ← deterministischer Coach-Kern (Code = Systematik)
+├── functions/                         ← Cloud Functions (Node 22, europe-west3)
+│   └── src/                           ← index.ts (Callable) + lib/ (context, prompt, guardrails) + llm/
+├── eval/                              ← zero-dep Eval-Harness + Offline-Tests (npm test)
 ├── firebase.json
 ├── firestore.rules
 ├── firestore.indexes.json             ← Composite Indexes (status+date, status+studioId+date)
@@ -131,9 +141,13 @@ Dann: [Aufgabe beschreiben]
 
 ```bash
 npm run build && firebase deploy --only hosting       # App deployen
+firebase deploy --only functions                      # Cloud Functions deployen (KI-Empfehlung)
 firebase deploy --only firestore:indexes              # Indizes deployen
 firebase deploy --only firestore:rules                # Rules deployen
 ```
+
+KI-Konzept/Architektur: `docs/architecture/ai-coach-engine.md` (Policy-first, Trend/Plateau),
+`docs/architecture/progressionsstrategien-krafttraining.md` (Trainingswissenschaft, ACSM 2026).
 
 ## Backup
 

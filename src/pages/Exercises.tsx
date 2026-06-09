@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { Exercise, ExerciseType } from '../types';
 import { Search, Activity, Plus, X } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 const TYPE_OPTIONS: { value: ExerciseType; label: string }[] = [
   { value: 'weighted', label: 'Gewicht' },
@@ -32,6 +33,7 @@ export default function Exercises() {
   const [type, setType] = useState<ExerciseType>('weighted');
   const [muscleGroup, setMuscleGroup] = useState('');
   const [contextDependent, setContextDependent] = useState(false);
+  const [repsProgression, setRepsProgression] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -67,12 +69,24 @@ export default function Exercises() {
     setType('weighted');
     setMuscleGroup('');
     setContextDependent(false);
+    setRepsProgression(false);
     setFormError(null);
   };
 
   const handleCancel = () => {
     setShowForm(false);
     resetForm();
+  };
+
+  // Flag "nur Reps-Progression" für eine bestehende (weighted) Übung umschalten.
+  const toggleRepsProgression = async (ex: Exercise) => {
+    if (!db) return;
+    try {
+      await setDoc(doc(db, 'exercises', ex.id), { repsProgression: !ex.repsProgression }, { merge: true });
+      setCatalog(prev => prev.map(e => (e.id === ex.id ? { ...e, repsProgression: !ex.repsProgression } : e)));
+    } catch (error) {
+      console.error('Error toggling repsProgression:', error);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,13 +120,14 @@ export default function Exercises() {
         type,
         muscleGroup: trimmedGroup,
         contextDependent,
+        repsProgression: type === 'weighted' ? repsProgression : false,
       });
       await fetchCatalog();
       resetForm();
       setShowForm(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating exercise:', error);
-      setFormError(error?.message || 'Übung konnte nicht gespeichert werden.');
+      setFormError((error instanceof Error ? error.message : '') || 'Übung konnte nicht gespeichert werden.');
     } finally {
       setSaving(false);
     }
@@ -189,6 +204,21 @@ export default function Exercises() {
             Studio-gebunden (Maschinen-/Seilzug-Übung)
           </label>
 
+          {type === 'weighted' && (
+            <label className="flex items-start gap-3 text-sm text-on-surface cursor-pointer">
+              <input
+                type="checkbox"
+                checked={repsProgression}
+                onChange={e => setRepsProgression(e.target.checked)}
+                className="w-5 h-5 accent-primary mt-0.5"
+              />
+              <span>
+                Nur Reps-Progression (Last am Limit)
+                <span className="block text-xs text-on-surface-variant">z. B. Maschine am Anschlag — die KI steigert dann nur Wiederholungen, nie das Gewicht.</span>
+              </span>
+            </label>
+          )}
+
           {formError && (
             <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-2">{formError}</div>
           )}
@@ -239,18 +269,34 @@ export default function Exercises() {
         <div className="bg-surface-container-lowest rounded-2xl border border-surface-container overflow-hidden shadow-sm">
           <ul className="divide-y divide-surface-container">
             {filteredCatalog.map(ex => (
-              <li key={ex.id} className="p-4 hover:bg-surface-container-low transition-colors duration-150">
-                <div className="font-bold text-on-surface">{ex.name}</div>
-                <div className="text-xs mt-1 flex items-center gap-2">
-                  <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md">
-                    {ex.muscleGroup}
-                  </span>
-                  {ex.contextDependent && (
-                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
-                      Studio-gebunden
+              <li key={ex.id} className="p-4 hover:bg-surface-container-low transition-colors duration-150 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-bold text-on-surface">{ex.name}</div>
+                  <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md">
+                      {ex.muscleGroup}
                     </span>
-                  )}
+                    {ex.contextDependent && (
+                      <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
+                        Studio-gebunden
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {ex.type === 'weighted' && (
+                  <button
+                    onClick={() => toggleRepsProgression(ex)}
+                    title="Last am Limit → KI steigert nur Wiederholungen, nie das Gewicht"
+                    className={cn(
+                      'shrink-0 mt-0.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border transition-colors duration-150',
+                      ex.repsProgression
+                        ? 'bg-primary/10 text-primary border-primary/20'
+                        : 'bg-surface-container-low text-outline border-surface-container hover:text-on-surface-variant',
+                    )}
+                  >
+                    Reps-Progression
+                  </button>
+                )}
               </li>
             ))}
             {filteredCatalog.length === 0 && (

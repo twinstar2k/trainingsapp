@@ -12,8 +12,10 @@
 
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import {
-  RECOMMENDATION_TOOL, buildMessages, extractPayload, validateStructure, applyGuardrails,
+  RECOMMENDATION_TOOL, buildMessages, extractPayload, validateStructure, applyGuardrails, applyPolicyOverride,
 } from './lib.mjs';
+// Policy-first: deterministischer Kern (kompiliert). Vorher bauen: cd ../functions && npx tsc
+import { computeExercisePlan } from '../functions/lib/shared/policy.js';
 
 // ─── .env laden (versionsunabhängig, kein dotenv nötig) ──────────────────────────
 function loadEnv() {
@@ -77,7 +79,8 @@ async function callModel(model, messages) {
 // ─── Ein Szenario gegen ein Modell ───────────────────────────────────────────────
 async function evalOne(model, scenario) {
   const state = scenario.state;
-  let messages = buildMessages(state);
+  const plans = state.exercises.map((e) => computeExercisePlan(e, state.goal));
+  let messages = buildMessages(state, plans);
   let payload = null, structErr = null, api = null, tries = 0;
 
   for (tries = 1; tries <= 2; tries++) {
@@ -105,7 +108,8 @@ async function evalOne(model, scenario) {
   if (!payload) {
     return { ok: false, valid: false, validFirst: false, retried: tries > 1, structErr, latencyMs: api.latencyMs, usage };
   }
-  const g = applyGuardrails(payload, state);
+  const merged = applyPolicyOverride(payload, plans);
+  const g = applyGuardrails(merged, state);
   return {
     ok: true,
     valid: true,
@@ -117,7 +121,7 @@ async function evalOne(model, scenario) {
     guardrails: g,
     latencyMs: api.latencyMs,
     usage,
-    payload,
+    payload: merged,
   };
 }
 

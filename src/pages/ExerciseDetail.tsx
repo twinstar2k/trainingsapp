@@ -91,7 +91,7 @@ export default function ExerciseDetail() {
     if (available.length > 0 && !available.includes(activeMetric)) {
       setActiveMetric(available[0]);
     }
-  }, [exercise]);
+  }, [exercise, activeMetric]);
 
   // Determine current studioId from most recent training
   useEffect(() => {

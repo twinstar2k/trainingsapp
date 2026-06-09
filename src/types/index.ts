@@ -1,4 +1,24 @@
-export type ExerciseType = 'weighted' | 'reps_only' | 'cardio_basic';
+// Domänen- und Vertragstypen.
+// Der KI-Empfehlungs-Vertrag (von App UND Cloud Function genutzt) liegt in shared/ai-types.ts
+// und wird hier re-exportiert, damit bestehende Imports aus '@/types' unverändert funktionieren.
+import type { ExerciseType, GoalKey, RirLevel } from '../../shared/ai-types';
+
+export type {
+  ExerciseType,
+  GoalKey,
+  RirLevel,
+  ExerciseContext,
+  TrendPoint,
+  TrainingState,
+  RecommendedSet,
+  RecommendedExercise,
+  RecommendationPayload,
+  PlanAction,
+  ProgressDirection,
+  TrendSummary,
+  ExercisePlan,
+  Recommendation,
+} from '../../shared/ai-types';
 
 export interface Exercise {
   id: string;
@@ -6,6 +26,7 @@ export interface Exercise {
   type: ExerciseType;
   muscleGroup: string;
   contextDependent: boolean;
+  repsProgression?: boolean; // weighted-Übung am Last-Limit → Progression nur über Wdh (kein Last-Sprung)
 }
 
 export interface Studio {
@@ -35,6 +56,8 @@ export interface TrainingExercise {
   exerciseId: string;
   order: number;
   status: 'open' | 'done';
+  restSeconds?: number; // Empfohlene/erfasste Pause pro Übung (z.B. aus KI-Empfehlung)
+  rir?: RirLevel; // Anstrengung der Übung (Wiederholungen in Reserve) — Signal für Autoregulation
   sets?: TrainingSet[]; // Loaded separately or nested depending on view
 }
 
@@ -59,4 +82,5 @@ export interface UserProfile {
   email: string;
   birthday?: string;
   createdAt: number;
+  trainingGoal?: GoalKey; // Standard-Trainingsziel, Default für KI-Empfehlungen
 }
