@@ -185,13 +185,19 @@ export function computeExercisePlan(ex: ExerciseContext, goal: GoalKey): Exercis
 
   const setCount = last.sets.length || DEFAULT_SET_COUNT;
 
-  // 2) reps_only (Körpergewicht): keine Last — Progression über Wiederholungen.
-  if (ex.type === 'reps_only') {
-    const minReps = Math.min(...last.sets.map((s) => s.reps));
-    const plan = makePlan(
-      ex, 'progress_reps', 'reps_only_progress', repeatSets(setCount, { reps: minReps + 1 }), range, 0, trend,
-    );
-    return applyStall(plan, series, repeatSets(setCount, { reps: minReps }));
+  // 2) Reps-Progression: Bodyweight (reps_only) ODER weighted-Übung am Last-Limit (Flag
+  //    repsProgression, z.B. Maschine am Anschlag). Progression läuft über Wiederholungen,
+  //    ein vorhandenes Gewicht bleibt fix, KEIN Wdh-Range-Cap.
+  if (ex.type === 'reps_only' || ex.repsProgression) {
+    const workingWeight = Math.max(0, ...last.sets.map((s) => s.weight ?? 0));
+    const hasWeight = workingWeight > 0;
+    const relevant = hasWeight ? last.sets.filter((s) => (s.weight ?? 0) >= workingWeight) : last.sets;
+    const minReps = Math.min(...relevant.map((s) => s.reps));
+    const reason = hasWeight ? 'load_capped_reps' : 'reps_only_progress';
+    const next = hasWeight ? { reps: minReps + 1, weight: workingWeight } : { reps: minReps + 1 };
+    const held = hasWeight ? { reps: minReps, weight: workingWeight } : { reps: minReps };
+    const plan = makePlan(ex, 'progress_reps', reason, repeatSets(setCount, next), null, 0, trend);
+    return applyStall(plan, series, repeatSets(setCount, held));
   }
 
   // 3) weighted: Arbeits-(Top-)Gewicht der letzten Einheit bestimmen.
@@ -292,6 +298,8 @@ export function describePlan(plan: ExercisePlan): string {
       return `Halten — wie zuletzt: ${scheme}.`;
     case 'reps_only_progress':
       return `Körpergewicht — eine Wiederholung mehr anpeilen: ${scheme}.`;
+    case 'load_capped_reps':
+      return `Last am Limit (${w} kg) — Progression über Wiederholungen, Gewicht bleibt: ${scheme}.`;
     case 'no_history':
       return 'Noch keine Historie — vorsichtig mit moderatem Startwert herantasten.';
     default:

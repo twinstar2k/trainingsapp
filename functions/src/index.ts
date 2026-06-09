@@ -79,7 +79,7 @@ export const getTrainingRecommendation = onCall(
     for (const exId of exerciseIds) {
       const exDoc = await db.doc(`exercises/${exId}`).get();
       if (!exDoc.exists) continue; // erfundene/unbekannte Übungen ignorieren
-      const ex = exDoc.data() as { name: string; type: ExerciseInput['type']; muscleGroup: string; contextDependent: boolean };
+      const ex = exDoc.data() as { name: string; type: ExerciseInput['type']; muscleGroup: string; contextDependent: boolean; repsProgression?: boolean };
       const sessions = await fetchSessions(uid, exId, ex.contextDependent ? data.studioId : null);
       exerciseInputs.push({
         exerciseId: exId,
@@ -87,6 +87,7 @@ export const getTrainingRecommendation = onCall(
         type: ex.type,
         muscleGroup: ex.muscleGroup,
         contextDependent: ex.contextDependent,
+        repsProgression: ex.repsProgression ?? false,
         sessions,
       });
     }

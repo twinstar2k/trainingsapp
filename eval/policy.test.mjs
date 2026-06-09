@@ -118,10 +118,24 @@ check('T Range gefüllt + Reserve schlägt flachen Trend -> progress_load', p.ac
 p = computeExercisePlan({ ...base, trend: [tp(80, 12), tp(82.5, 8), tp(82.5, 9)], lastSession: sess([{ reps: 9, weight: 82.5 }, { reps: 9, weight: 82.5 }]), lastRir: 1 }, 'progression');
 check('U Rebuild nach Last-Sprung -> progress_reps (kein stall)', p.action === 'progress_reps' && p.reason === 'range_not_filled' && p.sets[0].reps === 10, p);
 
+// ── Reps-Progression-Flag (weighted am Last-Limit) ───────────────────────────────
+p = computeExercisePlan({ ...base, repsProgression: true, lastSession: sess([{ reps: 20, weight: 130 }, { reps: 20, weight: 130 }]), lastRir: 0 }, 'progression');
+check('V Flag: weighted am Limit 20@130 -> load_capped_reps 21@130, repRange null',
+  p.action === 'progress_reps' && p.reason === 'load_capped_reps' && p.sets[0].reps === 21 && p.sets[0].weight === 130 && p.repRange === null, p);
+
+p = computeExercisePlan({ ...base, type: 'reps_only', muscleGroup: 'Bauch', lastSession: sess([{ reps: 17 }, { reps: 17 }]), lastRir: 0 }, 'progression');
+check('W reps_only unverändert -> reps_only_progress 18, kein Gewicht, repRange null',
+  p.action === 'progress_reps' && p.reason === 'reps_only_progress' && p.sets[0].reps === 18 && p.sets[0].weight === undefined && p.repRange === null, p);
+
+// Entscheidend: Flag überstimmt den Last-Sprung — auch bei vollem Rand + Reserve nur Reps.
+p = computeExercisePlan({ ...base, repsProgression: true, lastSession: sess([{ reps: 12, weight: 130 }, { reps: 12, weight: 130 }]), lastRir: 2 }, 'progression');
+check('X Flag bei vollem Rand + Reserve -> trotzdem Reps (13@130), KEIN progress_load',
+  p.action === 'progress_reps' && p.reason === 'load_capped_reps' && p.sets[0].reps === 13 && p.sets[0].weight === 130, p);
+
 // ── describePlan (Fallback-Begründung) ───────────────────────────────────────────
 p = computeExercisePlan({ ...base, lastSession: sess([{ reps: 12, weight: 80 }]), lastRir: 1 }, 'progression');
 check('M describePlan liefert Text', typeof describePlan(p) === 'string' && describePlan(p).length > 10, describePlan(p));
-for (const reason of ['ask_rir', 'stall_fatigue', 'stall_push', 'stall_no_rir']) {
+for (const reason of ['ask_rir', 'stall_fatigue', 'stall_push', 'stall_no_rir', 'load_capped_reps']) {
   const txt = describePlan({ action: 'hold', reason, increment: 0, repRange: [8, 12], sets: [{ reps: 12, weight: 80 }] });
   check(`M+ describePlan(${reason}) liefert Text`, typeof txt === 'string' && txt.length > 20, txt);
 }

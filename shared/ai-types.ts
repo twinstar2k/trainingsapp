@@ -40,6 +40,7 @@ export interface ExerciseContext {
   type: ExerciseType;
   muscleGroup: string;
   contextDependent: boolean;
+  repsProgression?: boolean; // weighted-Übung am Last-Limit → Progression nur über Wdh (Last fix)
   daysSinceLast: number | null;
   lastSession: { sets: Array<{ reps: number; weight?: number }> } | null;
   lastRir: RirLevel | null; // RIR der letzten Einheit — Signal für Autoregulation

@@ -19,6 +19,7 @@ export interface ExerciseInput {
   type: ExerciseType;
   muscleGroup: string;
   contextDependent: boolean;
+  repsProgression?: boolean; // Last-Limit-Flag aus dem Katalog
   sessions: PastSession[];
 }
 
@@ -68,6 +69,7 @@ export function buildExerciseContext(input: ExerciseInput, referenceDate: string
     type: input.type,
     muscleGroup: input.muscleGroup,
     contextDependent: input.contextDependent,
+    repsProgression: input.repsProgression ?? false,
     daysSinceLast: last ? daysBetween(last.date, referenceDate) : null,
     lastSession: last
       ? {

@@ -63,6 +63,15 @@ ctx = buildExerciseContext(baseInput({ sessions: [] }), REF);
 check('D keine Historie -> lastSession null, trend leer, daysSinceLast null',
   ctx.lastSession === null && ctx.trend.length === 0 && ctx.daysSinceLast === null, ctx);
 
+// ── repsProgression-Flag durchgereicht ───────────────────────────────────────────
+ctx = buildExerciseContext(baseInput({
+  repsProgression: true,
+  sessions: [{ date: '2026-06-02', studioId: 's1', sets: [{ reps: 20, weight: 130 }] }],
+}), REF);
+check('F repsProgression-Flag durchgereicht', ctx.repsProgression === true, ctx.repsProgression);
+ctx = buildExerciseContext(baseInput({ sessions: [] }), REF);
+check('F2 ohne Flag -> false (nie undefined)', ctx.repsProgression === false, ctx.repsProgression);
+
 // ── buildTrainingState reicht durch + bleibt undefined-frei ───────────────────────
 const state = buildTrainingState({
   goal: 'progression', date: REF, studioId: 's1', bodyweightKg: null,

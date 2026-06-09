@@ -26,6 +26,7 @@ export interface Exercise {
   type: ExerciseType;
   muscleGroup: string;
   contextDependent: boolean;
+  repsProgression?: boolean; // weighted-Übung am Last-Limit → Progression nur über Wdh (kein Last-Sprung)
 }
 
 export interface Studio {

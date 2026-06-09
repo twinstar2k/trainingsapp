@@ -31,6 +31,7 @@ const REASON_LEGEND: Record<string, string> = {
   goal_deload: 'Deload → Last bewusst gesenkt',
   goal_maintenance: 'Halten → wie zuletzt',
   reps_only_progress: 'Körpergewicht → eine Wiederholung mehr anpeilen',
+  load_capped_reps: 'Last am Limit (Gewicht fix, z.B. Maschine am Anschlag) → Progression über Wiederholungen; Gewicht bleibt, KEINEN Last-Sprung erwähnen, KEINEN festen Wdh-Bereich nennen',
   no_history: 'keine Historie → konservativer, vorsichtiger Startwert (du schlägst Gewicht/Wdh vor)',
 };
 

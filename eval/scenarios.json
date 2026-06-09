@@ -307,5 +307,34 @@
         }
       ]
     }
+  },
+  {
+    "id": "L-load-capped-reps",
+    "description": "Weighted-Maschine am Last-Limit (Flag repsProgression). 4×20 @130 kg, Gewicht ist Maschinen-Max. Erwartung: progress_reps/load_capped_reps — 4×21 bei FIXEN 130 kg, KEIN Last-Sprung, KEIN '8–12'-Bereich, kein Hinweis aufs Gewicht-Erhöhen.",
+    "state": {
+      "goal": "progression",
+      "date": "2026-06-08",
+      "studioId": "studio-david-lloyd",
+      "bodyweightKg": 82,
+      "exercises": [
+        {
+          "exerciseId": "maschine-abduktor",
+          "name": "Maschine Abduktor",
+          "type": "weighted",
+          "muscleGroup": "Beine",
+          "contextDependent": true,
+          "repsProgression": true,
+          "daysSinceLast": 4,
+          "lastSession": { "sets": [ { "reps": 20, "weight": 130 }, { "reps": 20, "weight": 130 }, { "reps": 20, "weight": 130 }, { "reps": 20, "weight": 130 } ] },
+          "lastRir": 0,
+          "best1RM": null,
+          "trend": [
+            { "date": "2026-05-21", "best1RM": null, "maxWeight": 130, "workingReps": 18, "rir": 0 },
+            { "date": "2026-05-28", "best1RM": null, "maxWeight": 130, "workingReps": 19, "rir": 0 },
+            { "date": "2026-06-04", "best1RM": null, "maxWeight": 130, "workingReps": 20, "rir": 0 }
+          ]
+        }
+      ]
+    }
   }
 ]
