@@ -128,6 +128,7 @@ Dann: [Aufgabe beschreiben]
 - Subcollections für user-gebundene Daten unter `users/{uid}/`
 - Globale Daten (Übungskatalog) in Top-Level-Collection `exercises`
 - Neue Firestore-Indizes in `firestore.indexes.json` eintragen und mit `firebase deploy --only firestore:indexes` deployen
+- **Rules-Drift vermeiden:** Schreibt der Client neue Felder auf rule-validierte Docs (z. B. `exercises` mit `hasOnly`), MUSS `firestore.rules` im selben Change nachgezogen und deployt werden — sonst scheitern Writes zur Laufzeit mit „Missing or insufficient permissions"
 
 ## Wichtige Geschäftsregeln
 
