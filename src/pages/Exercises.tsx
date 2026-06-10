@@ -11,6 +11,9 @@ const TYPE_OPTIONS: { value: ExerciseType; label: string }[] = [
   { value: 'cardio_basic', label: 'Cardio' },
 ];
 
+// Sentinel im Muskelgruppen-Dropdown: schaltet auf Freitext für eine neue Gruppe um.
+const NEW_GROUP = '__new__';
+
 const slugify = (name: string) =>
   name
     .toLowerCase()
@@ -33,6 +36,7 @@ export default function Exercises() {
   const [name, setName] = useState('');
   const [type, setType] = useState<ExerciseType>('weighted');
   const [muscleGroup, setMuscleGroup] = useState('');
+  const [useCustomGroup, setUseCustomGroup] = useState(false);
   const [contextDependent, setContextDependent] = useState(false);
   const [repsProgression, setRepsProgression] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -70,6 +74,7 @@ export default function Exercises() {
     setName('');
     setType('weighted');
     setMuscleGroup('');
+    setUseCustomGroup(false);
     setContextDependent(false);
     setRepsProgression(false);
     setFormError(null);
@@ -87,6 +92,7 @@ export default function Exercises() {
     setName(ex.name);
     setType(ex.type);
     setMuscleGroup(ex.muscleGroup);
+    setUseCustomGroup(false); // Gruppe der Übung ist immer Teil des Katalogs → im Dropdown wählbar
     setContextDependent(ex.contextDependent);
     setRepsProgression(!!ex.repsProgression);
     setFormError(null);
@@ -220,19 +226,36 @@ export default function Exercises() {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Muskelgruppe</label>
-            <input
-              type="text"
-              value={muscleGroup}
-              onChange={e => setMuscleGroup(e.target.value)}
-              list="muscle-group-suggestions"
-              maxLength={50}
-              required
-              className="w-full h-12 bg-surface-container-low ring-1 ring-outline-variant/30 rounded-xl px-4 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150"
-              placeholder="z. B. Beine"
-            />
-            <datalist id="muscle-group-suggestions">
-              {muscleGroupSuggestions.map(g => <option key={g} value={g} />)}
-            </datalist>
+            <select
+              value={useCustomGroup ? NEW_GROUP : muscleGroup}
+              onChange={e => {
+                if (e.target.value === NEW_GROUP) {
+                  setUseCustomGroup(true);
+                  setMuscleGroup('');
+                } else {
+                  setUseCustomGroup(false);
+                  setMuscleGroup(e.target.value);
+                }
+              }}
+              className="w-full h-12 bg-surface-container-low ring-1 ring-outline-variant/30 rounded-xl px-4 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150"
+            >
+              <option value="" disabled>Muskelgruppe wählen…</option>
+              {muscleGroupSuggestions.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+              <option value={NEW_GROUP}>+ Neue Muskelgruppe…</option>
+            </select>
+            {useCustomGroup && (
+              <input
+                type="text"
+                value={muscleGroup}
+                onChange={e => setMuscleGroup(e.target.value)}
+                maxLength={50}
+                autoFocus
+                className="w-full h-12 mt-2 bg-surface-container-low ring-1 ring-outline-variant/30 rounded-xl px-4 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150"
+                placeholder="z. B. Beine"
+              />
+            )}
           </div>
 
           <label className="flex items-center gap-3 text-sm text-on-surface cursor-pointer">
