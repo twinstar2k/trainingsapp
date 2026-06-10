@@ -50,6 +50,15 @@ export const getTrainingRecommendation = onCall(
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Anmeldung erforderlich.');
 
+    // Eingeloggt ≠ freigeschaltet: Allowlist-Check (Doc-ID = E-Mail lowercase) schützt
+    // insbesondere das LLM-Budget vor fremden Google-Konten. Spiegelt firestore.rules.
+    const email = request.auth?.token.email;
+    const allowed = typeof email === 'string'
+      && (await db.doc(`allowlist/${email.toLowerCase()}`).get()).exists;
+    if (!allowed) {
+      throw new HttpsError('permission-denied', 'Dieses Konto ist nicht für die App freigeschaltet.');
+    }
+
     const data = request.data ?? {};
     if (typeof data.studioId !== 'string' || !data.studioId) {
       throw new HttpsError('invalid-argument', 'studioId fehlt.');

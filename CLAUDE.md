@@ -124,6 +124,7 @@ Dann: [Aufgabe beschreiben]
 ## Firebase-Konventionen
 
 - Security Rules: deny-by-default, jede Collection muss abgedeckt sein
+- **Zugangs-Allowlist (Private Beta):** Top-Level-Collection `allowlist`, Doc-ID = Google-E-Mail in lowercase (exakt wie in Firebase Console → Authentication angezeigt; ein beliebiges Feld wie `note` genügt). Rules (`allowedUser()`) UND die KI-Function prüfen dagegen — eingeloggt ≠ freigeschaltet. Tester freischalten = Dokument in der Console anlegen, kein Deploy nötig. Pflege nur über die Console, Clients haben keinen Zugriff.
 - Dokument-IDs: Auto-ID für user-generierte Daten, sprechende IDs für Stammdaten
 - Subcollections für user-gebundene Daten unter `users/{uid}/`
 - Globale Daten (Übungskatalog) in Top-Level-Collection `exercises`
