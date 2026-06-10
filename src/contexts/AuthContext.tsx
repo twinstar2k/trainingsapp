@@ -6,6 +6,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  // true = eingeloggt, aber nicht auf der Zugangs-Allowlist (Private Beta).
+  accessDenied: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -13,6 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  accessDenied: false,
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
@@ -25,6 +28,7 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
     if (!auth) {
@@ -34,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      setAccessDenied(false);
 
       try {
         if (currentUser && db) {
@@ -49,7 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
-        console.error('Error ensuring user document', error);
+        // permission-denied = Konto nicht auf der Allowlist → Sperr-Seite statt Fehler-Kaskade.
+        if ((error as { code?: string })?.code === 'permission-denied') {
+          setAccessDenied(true);
+        } else {
+          console.error('Error ensuring user document', error);
+        }
       } finally {
         setLoading(false);
       }
@@ -87,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, accessDenied, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

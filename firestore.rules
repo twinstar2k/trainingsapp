@@ -3,9 +3,30 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Globaler Übungskatalog: für eingeloggte User lesbar.
-    // Anlegen + Bearbeiten erlaubt mit Feld-Validierung (privat genutzte App,
-    // Katalog wird bewusst von allen eingeloggten Usern gepflegt).
+    // Zugangs-Allowlist (Private Beta): Doc-ID = Google-E-Mail in lowercase.
+    // Pflege ausschließlich über die Firebase Console — Clients haben keinerlei
+    // Zugriff auf die Collection (siehe Match-Block unten).
+    // Wichtig: Eingeloggt ≠ freigeschaltet. Der Google-Login steht technisch jedem
+    // offen; nutzbar ist die App nur für gelistete Konten.
+    function allowedUser() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/allowlist/$(request.auth.token.email.lower()));
+    }
+
+    // Eigentümer-Check für User-Daten: eigene UID UND freigeschaltet.
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId && allowedUser();
+    }
+
+    // Nur Console/Admin SDK — kein Lesen/Schreiben durch Clients.
+    // (exists() in allowedUser() braucht keine Client-Leserechte.)
+    match /allowlist/{email} {
+      allow read, write: if false;
+    }
+
+    // Globaler Übungskatalog: für freigeschaltete User lesbar und pflegbar.
     // ID + Typ sind nach dem Anlegen unveränderlich; Löschen nur über die Console.
     match /exercises/{exerciseId} {
       // Validiert den Ergebniszustand des Writes (bei merge: Bestand + Änderung).
@@ -24,45 +45,45 @@ service cloud.firestore {
           && d.contextDependent is bool
           && (!('repsProgression' in d) || d.repsProgression is bool);
       }
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && validExercise();
+      allow read: if allowedUser();
+      allow create: if allowedUser() && validExercise();
       // Typ bleibt fix — historische Sätze hängen daran (Edit-UI sperrt ihn ebenfalls).
-      allow update: if request.auth != null
+      allow update: if allowedUser()
         && validExercise()
         && request.resource.data.type == resource.data.type;
       allow delete: if false;
     }
 
-    // User-eigene Daten: ausschließlich der jeweilige User darf lesen/schreiben.
+    // User-eigene Daten: ausschließlich der jeweilige (freigeschaltete) User.
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
 
       match /studios/{studioId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
 
       match /weightHistory/{entryId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
 
       match /templates/{templateId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
 
       // KI-Empfehlungen (Audit/Eval/Transparenz) — nur der jeweilige User.
       match /recommendations/{recId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
 
       // Trainings inkl. verschachtelter Übungen und Sätze.
       match /trainings/{trainingId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
 
         match /exercises/{trainingExerciseId} {
-          allow read, write: if request.auth != null && request.auth.uid == userId;
+          allow read, write: if isOwner(userId);
 
           match /sets/{setId} {
-            allow read, write: if request.auth != null && request.auth.uid == userId;
+            allow read, write: if isOwner(userId);
           }
         }
       }
