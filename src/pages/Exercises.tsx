@@ -3,8 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { Exercise, ExerciseType } from '../types';
-import { Search, Activity, Plus, X } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { Search, Activity, Plus, X, Pencil } from 'lucide-react';
 
 const TYPE_OPTIONS: { value: ExerciseType; label: string }[] = [
   { value: 'weighted', label: 'Gewicht' },
@@ -29,6 +28,8 @@ export default function Exercises() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [showForm, setShowForm] = useState(false);
+  // null = neue Übung anlegen, sonst ID der Übung, die im Formular bearbeitet wird.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [type, setType] = useState<ExerciseType>('weighted');
   const [muscleGroup, setMuscleGroup] = useState('');
@@ -65,6 +66,7 @@ export default function Exercises() {
   );
 
   const resetForm = () => {
+    setEditingId(null);
     setName('');
     setType('weighted');
     setMuscleGroup('');
@@ -78,15 +80,18 @@ export default function Exercises() {
     resetForm();
   };
 
-  // Flag "nur Reps-Progression" für eine bestehende (weighted) Übung umschalten.
-  const toggleRepsProgression = async (ex: Exercise) => {
-    if (!db) return;
-    try {
-      await setDoc(doc(db, 'exercises', ex.id), { repsProgression: !ex.repsProgression }, { merge: true });
-      setCatalog(prev => prev.map(e => (e.id === ex.id ? { ...e, repsProgression: !ex.repsProgression } : e)));
-    } catch (error) {
-      console.error('Error toggling repsProgression:', error);
-    }
+  // Übung ins Formular laden. Die Dokument-ID bleibt beim Bearbeiten stabil —
+  // sie wird von Trainings/Verläufen referenziert und ändert sich auch bei Umbenennung nicht.
+  const startEdit = (ex: Exercise) => {
+    setEditingId(ex.id);
+    setName(ex.name);
+    setType(ex.type);
+    setMuscleGroup(ex.muscleGroup);
+    setContextDependent(ex.contextDependent);
+    setRepsProgression(!!ex.repsProgression);
+    setFormError(null);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,6 +103,33 @@ export default function Exercises() {
 
     if (!trimmedName || !trimmedGroup) {
       setFormError('Name und Muskelgruppe sind Pflichtfelder.');
+      return;
+    }
+
+    // Bearbeiten: ID + Typ bleiben fix, nur die änderbaren Felder werden gemergt.
+    if (editingId) {
+      if (catalog.some(ex => ex.id !== editingId && ex.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
+        setFormError('Eine Übung mit diesem Namen existiert bereits.');
+        return;
+      }
+      setSaving(true);
+      setFormError(null);
+      try {
+        await setDoc(doc(db, 'exercises', editingId), {
+          name: trimmedName,
+          muscleGroup: trimmedGroup,
+          contextDependent,
+          repsProgression: type === 'weighted' ? repsProgression : false,
+        }, { merge: true });
+        await fetchCatalog();
+        resetForm();
+        setShowForm(false);
+      } catch (error) {
+        console.error('Error updating exercise:', error);
+        setFormError((error instanceof Error ? error.message : '') || 'Übung konnte nicht gespeichert werden.');
+      } finally {
+        setSaving(false);
+      }
       return;
     }
 
@@ -138,7 +170,7 @@ export default function Exercises() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">Übungskatalog</h2>
         <button
-          onClick={() => setShowForm(s => !s)}
+          onClick={() => (showForm ? handleCancel() : setShowForm(true))}
           className="h-11 px-4 bg-primary text-on-primary font-bold text-sm rounded-2xl hover:bg-primary-container transition-all duration-150 shadow-sm shadow-primary/20 active:scale-[0.97] flex items-center gap-2"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -151,6 +183,9 @@ export default function Exercises() {
           onSubmit={handleSubmit}
           className="bg-surface-container-lowest p-5 rounded-2xl border border-surface-container shadow-sm space-y-4"
         >
+          <h3 className="font-headline font-bold text-on-surface">
+            {editingId ? 'Übung bearbeiten' : 'Neue Übung'}
+          </h3>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Name</label>
             <input
@@ -169,12 +204,18 @@ export default function Exercises() {
             <select
               value={type}
               onChange={e => setType(e.target.value as ExerciseType)}
-              className="w-full h-12 bg-surface-container-low ring-1 ring-outline-variant/30 rounded-xl px-4 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150"
+              disabled={editingId !== null}
+              className="w-full h-12 bg-surface-container-low ring-1 ring-outline-variant/30 rounded-xl px-4 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {TYPE_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+            {editingId && (
+              <p className="text-xs text-on-surface-variant mt-1">
+                Der Typ ist nach dem Anlegen fix — die erfassten Sätze hängen daran.
+              </p>
+            )}
           </div>
 
           <div>
@@ -229,7 +270,7 @@ export default function Exercises() {
               disabled={saving}
               className="flex-1 h-12 bg-primary text-on-primary font-bold text-sm rounded-2xl hover:bg-primary-container transition-all duration-150 shadow-sm shadow-primary/20 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? 'Speichere...' : 'Übung anlegen'}
+              {saving ? 'Speichere...' : editingId ? 'Speichern' : 'Übung anlegen'}
             </button>
             <button
               type="button"
@@ -281,22 +322,23 @@ export default function Exercises() {
                         Studio-gebunden
                       </span>
                     )}
+                    {ex.repsProgression && (
+                      <span
+                        title="Last am Limit → KI steigert nur Wiederholungen, nie das Gewicht"
+                        className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        Reps-Progression
+                      </span>
+                    )}
                   </div>
                 </div>
-                {ex.type === 'weighted' && (
-                  <button
-                    onClick={() => toggleRepsProgression(ex)}
-                    title="Last am Limit → KI steigert nur Wiederholungen, nie das Gewicht"
-                    className={cn(
-                      'shrink-0 mt-0.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border transition-colors duration-150',
-                      ex.repsProgression
-                        ? 'bg-primary/10 text-primary border-primary/20'
-                        : 'bg-surface-container-low text-outline border-surface-container hover:text-on-surface-variant',
-                    )}
-                  >
-                    Reps-Progression
-                  </button>
-                )}
+                <button
+                  onClick={() => startEdit(ex)}
+                  title="Übung bearbeiten"
+                  className="shrink-0 mt-0.5 p-2 -mr-2 text-outline hover:text-primary transition-colors"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
               </li>
             ))}
             {filteredCatalog.length === 0 && (
