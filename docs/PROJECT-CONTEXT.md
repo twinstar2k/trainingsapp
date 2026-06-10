@@ -20,12 +20,12 @@ Persönliche Web-App zur Erfassung und Analyse von Krafttraining. Die App beantw
 
 | Komponente | Technologie |
 |------------|-------------|
-| Frontend | React 18+ (TypeScript, Vite, mobile-first) |
-| UI-Bibliothek | MUI (Material UI) oder vergleichbar |
+| Frontend | React 19 (TypeScript, Vite, mobile-first) |
+| UI-Bibliothek | Tailwind CSS v4 (Design-Tokens via `@theme` in `src/index.css`) |
 | Auth | Firebase Authentication (Google Login) |
 | Datenbank | Cloud Firestore (NoSQL) |
 | Hosting | Firebase Hosting |
-| Backend | Keins — Firestore Security Rules steuern Zugriff |
+| Backend | Cloud Functions (Node 22, europe-west3) für die KI-Empfehlung — sonst Firestore Security Rules |
 | GCP-Projekt | mvp-app-claude (europe-west3) |
 | Entwicklung | Claude Code (CLI) |
 

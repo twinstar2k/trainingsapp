@@ -12,7 +12,7 @@ Lies `docs/PROJECT-CONTEXT.md` für den vollständigen fachlichen und technische
 
 ## Tech-Stack
 
-- **Frontend:** React 18 + TypeScript + Vite (mobile-first)
+- **Frontend:** React 19 + TypeScript + Vite (mobile-first)
 - **Styling:** Tailwind CSS v4 mit `@tailwindcss/vite` — Config via `@theme`-Block in `src/index.css`, kein `tailwind.config.js`
 - **Auth:** Firebase Authentication (Google Login via `signInWithPopup`)
 - **Datenbank:** Cloud Firestore
@@ -38,12 +38,15 @@ trainingsapp/
 ├── src/
 │   ├── components/
 │   │   ├── layout/AppLayout.tsx       ← Bottom Navigation
+│   │   ├── training/                  ← Bausteine der Trainings-Seite (ExerciseCard, SetRow, ExerciseCatalogModal)
 │   │   ├── ui/ConfirmDialog.tsx
 │   │   └── LastSessionLabel.tsx       ← "Zuletzt: 3×10@50kg"-Label
 │   ├── contexts/AuthContext.tsx       ← Google Auth (signInWithPopup)
 │   ├── hooks/
 │   │   ├── useExerciseProgress.ts     ← Fortschrittsdaten laden
-│   │   └── useLastSession.ts          ← Letzte Session einer Übung
+│   │   ├── useLastSession.ts          ← Letzte Session einer Übung
+│   │   ├── useRecommendation.ts       ← Callable getTrainingRecommendation aufrufen
+│   │   └── useTrainingSession.ts      ← Daten + alle Firestore-Mutationen eines Trainings
 │   ├── lib/
 │   │   ├── firebase.ts                ← Firebase-Initialisierung
 │   │   ├── seed.ts                    ← Übungskatalog-Seed
@@ -52,7 +55,7 @@ trainingsapp/
 │   ├── pages/
 │   │   ├── Dashboard.tsx
 │   │   ├── Trainings.tsx
-│   │   ├── TrainingDetail.tsx         ← Sätze erfassen, Übung antippbar
+│   │   ├── TrainingDetail.tsx         ← Komposition: useTrainingSession + components/training
 │   │   ├── NewTraining.tsx
 │   │   ├── ExerciseDetail.tsx         ← Fortschrittschart + Summary
 │   │   ├── Exercises.tsx
