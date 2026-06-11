@@ -45,7 +45,8 @@ Namensprefix bestimmt das Flag:
 ## Datenmodell (Firestore)
 
 ```
-exercises (global)              → name, type, muscleGroup, contextDependent
+allowlist/{email}               → Zugangs-Allowlist (Doc-ID = E-Mail lowercase); nur Console/Admin
+exercises (global)              → id, name, type, muscleGroup, contextDependent, repsProgression
 users/{uid}                     → name, birthday, email, createdAt
 users/{uid}/studios             → name, createdAt
 users/{uid}/weightHistory       → date, weight
@@ -120,9 +121,13 @@ users/{uid}/templates           → name, exercises[]
 - Templates (flexibel, kein starres Korsett)
 - Dashboard mit Fortschritt und automatischem Studio-Filter
 
+**Nach V1 ergänzt (Stand 2026-06-11):**
+- KI-Trainingsempfehlung (Flag `VITE_AI_RECOMMENDATIONS`, Policy-first Coach-Engine — siehe `docs/architecture/ai-coach-engine.md`)
+- Übungen im Katalog bearbeiten (nicht nur anlegen)
+- Private Beta / Zugangs-Allowlist
+
 **Nicht enthalten (spätere Phasen):**
 - Favoriten und Schnellzugriff
-- Automatische Gewichts-/Geräte-Vorschläge
 - Persönliche Rekorde
 - Export (CSV/Excel)
 - Gerätevarianten-Ebene
@@ -147,5 +152,5 @@ Indoor Cycle (Cardio), Laufband (Cardio), Rudern Ergometer (Cardio)
 
 ## Referenzdokumente
 
-- Fachkonzept: `docs/trainingsapp_konzept_v1.docx`
+- Fachkonzept (historisch, V1): `docs/trainingsapp_konzept_v1.md`
 - Agenten-Workflow: `docs/agents/00-workflow-anleitung.md`

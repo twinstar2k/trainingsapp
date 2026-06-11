@@ -28,13 +28,20 @@ trainingsapp/
 ├── CLAUDE.md                          ← Du bist hier
 ├── docs/
 │   ├── PROJECT-CONTEXT.md             ← Fachlicher + technischer Kontext
+│   ├── BACKLOG.md                     ← Ideen / „Nice to have" (inkl. Test-Feedback)
 │   ├── DESIGN.md                      ← Design-System (Google Stitch Tokens)
+│   ├── trainingsapp_konzept_v1.md     ← Historisches Fachkonzept (V1, nicht mehr gepflegt)
 │   ├── agents/                        ← Agenten-Prompts für rollenbasierte Entwicklung
 │   ├── requirements/                  ← User Stories und Akzeptanzkriterien
-│   │   └── exercise-progress.md
+│   │   ├── exercise-progress.md
+│   │   └── ai-recommendation.md
 │   ├── architecture/                  ← Technische Designs
-│   │   └── exercise-progress.md
+│   │   ├── exercise-progress.md
+│   │   ├── ai-recommendation.md       ← KI-Sandwich, ADRs, §6 DSGVO
+│   │   ├── ai-coach-engine.md         ← Policy-Kern (Code = Systematik, Trend/Plateau)
+│   │   └── progressionsstrategien-krafttraining.md  ← Trainingswissenschaft (ACSM 2026)
 │   └── qa-reports/                    ← Testberichte
+│       └── ai-recommendation-model-eval.md
 ├── src/
 │   ├── components/
 │   │   ├── layout/AppLayout.tsx       ← Bottom Navigation
@@ -81,11 +88,12 @@ trainingsapp/
 └── tsconfig.json
 ```
 
-## Implementierter Funktionsumfang (Stand 2026-04-08)
+## Implementierter Funktionsumfang (Stand 2026-06-11)
 
 - Google Login (signInWithPopup)
+- **Private Beta / Zugangs-Allowlist:** Eingeloggt ≠ freigeschaltet — nur gelistete Konten können die App nutzen (siehe Firebase-Konventionen). Fremde Konten sehen eine „Private Beta"-Sperrseite.
 - Studio-Verwaltung pro User
-- Übungskatalog (global, 50 Übungen Seed + clientseitig erweiterbar via „Neue Übung" auf Exercises-Seite)
+- Übungskatalog (global, 50 Übungen Seed; clientseitig erweiterbar via „Neue Übung" UND bearbeitbar via Stift-Button auf der Exercises-Seite — Name/Muskelgruppe/context_dependent/repsProgression; Typ bleibt nach Anlage fix, kein Löschen)
 - Training anlegen, Übungen + Sätze erfassen, abschließen
 - **Edit-Lock:** Abgeschlossene Trainings sind read-only — alle Edit-Affordances (Übung/Satz hinzufügen, löschen, Inputs, Toggles) erst nach „Training wieder öffnen" verfügbar
 - Körpergewicht-Historie mit Verlauf-Chart
@@ -93,6 +101,7 @@ trainingsapp/
   - `weighted`: Max-Gewicht / Volumen / 1RM (kg)
   - `reps_only`: Max. Wdh / Gesamt Wdh (Wdh) — für Bodyweight-Übungen wie Beinheben
   - „Zuletzt"-Label im aktiven Training
+- **KI-Trainingsempfehlung (Flag-gesteuert, `VITE_AI_RECOMMENDATIONS`):** Pro Übung, Policy-first — deterministischer Coach-Kern (`shared/policy.ts`, Double Progression + RIR-Autoregulation + Trend/Plateau) rechnet, das LLM begründet nur. Callable `getTrainingRecommendation` über EU-Gateway. Konzept: `docs/architecture/ai-coach-engine.md`.
 - **Daten-Export:** Button im Profil → JSON-Dump aller Userdaten (`src/lib/export.ts`)
 
 ## Agenten-Workflow
@@ -138,7 +147,7 @@ Dann: [Aufgabe beschreiben]
 - **1RM (Epley):** `weight × (1 + reps / 30)`, nur gültig für reps ≤ 15
 - **Standard-Metrik:** Max-Gewicht (nicht 1RM)
 - **Templates sind flexibel:** Übungen dürfen abweichen, kein starres Korsett
-- **Übungskatalog ist global:** Nur Admin kann Übungen hinzufügen
+- **Übungskatalog ist global UND von jedem freigeschalteten User schreibbar:** Die Rules kennen (noch) keine Admin-Rolle — `allowedUser()` darf Übungen anlegen und bearbeiten. Da der Katalog global ist, wirkt die Bearbeitung durch einen Tester für alle. In der Single-User-Phase unkritisch; sobald mehrere Konsumenten den Katalog teilen, wäre ein Ownership-/Admin-Konzept nötig (siehe `docs/BACKLOG.md`).
 - **Studios sind pro User:** Jeder User pflegt eigene Studios
 - **Gewichtshistorie:** Neue Einträge ergänzen, nie überschreiben
 
