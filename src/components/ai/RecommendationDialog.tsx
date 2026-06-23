@@ -88,7 +88,7 @@ export function RecommendationDialog({ studioId, date, exercises, onApply, onClo
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles className="w-5 h-5 text-primary shrink-0" />
           <div className="min-w-0">
-            <h3 className="font-headline font-bold text-on-surface leading-tight">KI-Empfehlung</h3>
+            <h3 className="font-headline font-bold text-on-surface leading-tight">Dein Coach</h3>
             <p className="text-xs text-on-surface-variant truncate">Ziel: {GOAL_LABELS[goal]}</p>
           </div>
         </div>
@@ -104,8 +104,8 @@ export function RecommendationDialog({ studioId, date, exercises, onApply, onClo
         {loading && !hasResult && (
           <div className="flex flex-col items-center justify-center text-center py-16 text-on-surface-variant">
             <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
-            <p className="text-sm font-medium">Empfehlung wird erstellt…</p>
-            <p className="text-xs mt-1">Dein Verlauf wird mit dem Ziel „{GOAL_LABELS[goal]}" abgeglichen.</p>
+            <p className="text-sm font-medium">Dein Coach schaut sich deinen Verlauf an…</p>
+            <p className="text-xs mt-1">Abgeglichen mit deinem Ziel „{GOAL_LABELS[goal]}".</p>
           </div>
         )}
 

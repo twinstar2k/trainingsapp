@@ -176,9 +176,9 @@ export default function Profile() {
       {/* Standard-Trainingsziel (Feature-Flag) */}
       {AI_RECOMMENDATIONS_ENABLED && (
         <section>
-          <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">Trainingsziel</h3>
+          <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">Dein Coach</h3>
           <div className="bg-surface-container-lowest rounded-2xl border border-surface-container p-4 shadow-sm">
-            <p className="text-sm text-on-surface-variant mb-3">Steuert die KI-Empfehlungen. Wird hier zentral eingestellt.</p>
+            <p className="text-sm text-on-surface-variant mb-3">Steuert, worauf dein Coach die Empfehlungen ausrichtet.</p>
             {goal && <GoalPicker value={goal} onChange={handleGoalChange} />}
           </div>
         </section>

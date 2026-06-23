@@ -67,6 +67,9 @@ export interface Training {
   studioId: string;
   templateId?: string;
   status: 'active' | 'completed';
+  // Zeitpunkt des ERSTEN Abschlusses (epoch ms). Wird nur gesetzt, wenn noch leer —
+  // bleibt also über Wieder-Öffnen/erneut-Abschließen stabil. Fehlt bei Altdaten.
+  completedAt?: number;
   notes?: string;
 }
 
