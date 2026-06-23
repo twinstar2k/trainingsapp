@@ -33,3 +33,6 @@ backup/
 *.sln
 *.sw?
 .env
+
+# Lokale Präsentation (nicht Teil des Repos)
+docs/praesentation.html
