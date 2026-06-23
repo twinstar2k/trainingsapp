@@ -79,8 +79,25 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // Trainings-Vorlagen (Skelett: geordnete Übungsliste). ID kommt aus doc.id,
+      // wird NICHT als Feld gespeichert. category ist reservierter Split-Platz (optional).
       match /templates/{templateId} {
-        allow read, write: if isOwner(userId);
+        // Rules können Listen-Elemente nicht iterieren — daher nur Typ `list` + Größen-Cap
+        // (Schutz vor Doc-Größenexzess); String-IDs garantiert der Client (Typsystem + Katalog-Auswahl).
+        function validTemplate() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['name', 'exerciseIds', 'category', 'createdAt'])
+            && d.name is string
+            && d.name.size() > 0
+            && d.name.size() <= 100
+            && d.exerciseIds is list
+            && d.exerciseIds.size() <= 50
+            && d.createdAt is number
+            && (!('category' in d) || d.category is string);
+        }
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validTemplate();
+        allow delete: if isOwner(userId);
       }
 
       // KI-Empfehlungen (Audit/Eval/Transparenz) — nur der jeweilige User.

@@ -74,9 +74,11 @@ export interface Training {
 }
 
 export interface Template {
-  id: string;
+  id: string; // aus doc.id — NICHT als Feld gespeichert
   name: string;
-  exercises: string[]; // Array of exercise IDs
+  exerciseIds: string[]; // geordnete Liste von Katalog-Übungs-IDs (Reihenfolge = Array-Index)
+  category?: string; // reservierter Platz für späteres Split-Label (Stufe 2), aktuell ungenutzt
+  createdAt: number;
 }
 
 export interface UserProfile {
