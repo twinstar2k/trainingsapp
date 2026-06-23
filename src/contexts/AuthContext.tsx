@@ -8,6 +8,8 @@ interface AuthContextType {
   loading: boolean;
   // true = eingeloggt, aber nicht auf der Zugangs-Allowlist (Private Beta).
   accessDenied: boolean;
+  // true = eigener Allowlist-Eintrag trägt note == "Admin" → darf den Katalog pflegen.
+  isAdmin: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -16,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   accessDenied: false,
+  isAdmin: false,
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
@@ -29,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!auth) {
@@ -39,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setAccessDenied(false);
+      setIsAdmin(false);
 
       try {
         if (currentUser && db) {
@@ -51,6 +56,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: currentUser.email || '',
               createdAt: Date.now(),
             });
+          }
+
+          // Rolle aus dem eigenen Allowlist-Eintrag lesen (Rules erlauben Self-Read).
+          // note == "Admin" (case-insensitive) ⇒ Katalog-Pflege freigeschaltet.
+          // Eigener try/catch: ein Fehler hier darf NIE den Zugang sperren — die Rolle
+          // ist nur Komfort fürs UI; die Rules erzwingen die Schreibrechte ohnehin.
+          const email = currentUser.email?.toLowerCase();
+          if (email) {
+            try {
+              const allowSnap = await getDoc(doc(db, 'allowlist', email));
+              setIsAdmin(String(allowSnap.data()?.note ?? '').toLowerCase() === 'admin');
+            } catch (roleError) {
+              console.error('Error reading allowlist role', roleError);
+            }
           }
         }
       } catch (error) {
@@ -97,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, accessDenied, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, accessDenied, isAdmin, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

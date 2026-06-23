@@ -25,7 +25,7 @@ const slugify = (name: string) =>
     .replace(/^-+|-+$/g, '');
 
 export default function Exercises() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [catalog, setCatalog] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,7 +102,7 @@ export default function Exercises() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db) return;
+    if (!db || !isAdmin) return; // Katalog-Pflege ist Admins vorbehalten (Rules erzwingen es serverseitig).
 
     const trimmedName = name.trim();
     const trimmedGroup = muscleGroup.trim();
@@ -175,16 +175,18 @@ export default function Exercises() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">Übungskatalog</h2>
-        <button
-          onClick={() => (showForm ? handleCancel() : setShowForm(true))}
-          className="h-11 px-4 bg-primary text-on-primary font-bold text-sm rounded-2xl hover:bg-primary-container transition-all duration-150 shadow-sm shadow-primary/20 active:scale-[0.97] flex items-center gap-2"
-        >
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? 'Schließen' : 'Neue Übung'}
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => (showForm ? handleCancel() : setShowForm(true))}
+            className="h-11 px-4 bg-primary text-on-primary font-bold text-sm rounded-2xl hover:bg-primary-container transition-all duration-150 shadow-sm shadow-primary/20 active:scale-[0.97] flex items-center gap-2"
+          >
+            {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showForm ? 'Schließen' : 'Neue Übung'}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {isAdmin && showForm && (
         <form
           onSubmit={handleSubmit}
           className="bg-surface-container-lowest p-5 rounded-2xl border border-surface-container shadow-sm space-y-4"
@@ -355,13 +357,15 @@ export default function Exercises() {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => startEdit(ex)}
-                  title="Übung bearbeiten"
-                  className="shrink-0 mt-0.5 p-2 -mr-2 text-outline hover:text-primary transition-colors"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => startEdit(ex)}
+                    title="Übung bearbeiten"
+                    className="shrink-0 mt-0.5 p-2 -mr-2 text-outline hover:text-primary transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
               </li>
             ))}
             {filteredCatalog.length === 0 && (

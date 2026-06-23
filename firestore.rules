@@ -4,8 +4,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Zugangs-Allowlist (Private Beta): Doc-ID = Google-E-Mail in lowercase.
-    // Pflege ausschließlich über die Firebase Console — Clients haben keinerlei
-    // Zugriff auf die Collection (siehe Match-Block unten).
+    // Pflege ausschließlich über die Firebase Console — Clients können nur ihren
+    // eigenen Eintrag lesen (Freischaltung + Rolle), nie schreiben (siehe Match-Block).
     // Wichtig: Eingeloggt ≠ freigeschaltet. Der Google-Login steht technisch jedem
     // offen; nutzbar ist die App nur für gelistete Konten.
     function allowedUser() {
@@ -15,18 +15,31 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/allowlist/$(request.auth.token.email.lower()));
     }
 
+    // Admin-Rolle: freigeschaltet UND im eigenen Allowlist-Eintrag note == "Admin"
+    // (case-insensitive). Kostet einen zusätzlichen get() — fällt nur bei Katalog-Writes
+    // an, die selten und ausschließlich vom Admin kommen. Pflege des note-Felds: Console.
+    function isAdmin() {
+      return allowedUser()
+        && get(/databases/$(database)/documents/allowlist/$(request.auth.token.email.lower()))
+             .data.get('note', '').lower() == 'admin';
+    }
+
     // Eigentümer-Check für User-Daten: eigene UID UND freigeschaltet.
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId && allowedUser();
     }
 
-    // Nur Console/Admin SDK — kein Lesen/Schreiben durch Clients.
-    // (exists() in allowedUser() braucht keine Client-Leserechte.)
+    // Schreiben nur über Console/Admin SDK. Lesen darf jeder NUR seinen eigenen
+    // Eintrag — damit der Client die eigene Freischaltung + Rolle (note) kennt.
+    // (exists()/get() in allowedUser()/isAdmin() brauchen keine Client-Leserechte.)
     match /allowlist/{email} {
-      allow read, write: if false;
+      allow read: if request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email.lower() == email;
+      allow write: if false;
     }
 
-    // Globaler Übungskatalog: für freigeschaltete User lesbar und pflegbar.
+    // Globaler Übungskatalog: für alle Freigeschalteten lesbar, pflegbar NUR vom Admin.
     // ID + Typ sind nach dem Anlegen unveränderlich; Löschen nur über die Console.
     match /exercises/{exerciseId} {
       // Validiert den Ergebniszustand des Writes (bei merge: Bestand + Änderung).
@@ -46,9 +59,9 @@ service cloud.firestore {
           && (!('repsProgression' in d) || d.repsProgression is bool);
       }
       allow read: if allowedUser();
-      allow create: if allowedUser() && validExercise();
+      allow create: if isAdmin() && validExercise();
       // Typ bleibt fix — historische Sätze hängen daran (Edit-UI sperrt ihn ebenfalls).
-      allow update: if allowedUser()
+      allow update: if isAdmin()
         && validExercise()
         && request.resource.data.type == resource.data.type;
       allow delete: if false;

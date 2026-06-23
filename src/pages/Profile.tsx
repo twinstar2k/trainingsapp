@@ -10,7 +10,7 @@ import { GoalPicker } from '../components/ai/GoalPicker';
 import { AI_RECOMMENDATIONS_ENABLED } from '../lib/featureFlags';
 
 export default function Profile() {
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const [studios, setStudios] = useState<Studio[]>([]);
   const [newStudioName, setNewStudioName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -197,14 +197,16 @@ export default function Profile() {
             {exporting ? 'Exportiere...' : 'Alle Daten exportieren (JSON)'}
           </button>
 
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            className="w-full bg-surface-container-lowest border border-surface-container text-on-surface p-4 rounded-2xl flex items-center justify-center font-medium hover:bg-surface-container-low transition-all duration-150 shadow-sm disabled:opacity-50"
-          >
-            <Database className="w-5 h-5 mr-2 text-outline" />
-            {seeding ? 'Initialisiere...' : 'Übungskatalog initialisieren'}
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleSeed}
+              disabled={seeding}
+              className="w-full bg-surface-container-lowest border border-surface-container text-on-surface p-4 rounded-2xl flex items-center justify-center font-medium hover:bg-surface-container-low transition-all duration-150 shadow-sm disabled:opacity-50"
+            >
+              <Database className="w-5 h-5 mr-2 text-outline" />
+              {seeding ? 'Initialisiere...' : 'Übungskatalog initialisieren'}
+            </button>
+          )}
 
           <button
             onClick={signOut}

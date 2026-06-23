@@ -2,6 +2,8 @@
 
 Persönliche Web-App zur Erfassung und Analyse von Krafttraining.
 
+> **Sprache:** Immer auf Deutsch mit dem Nutzer kommunizieren (Antworten, Erklärungen, Rückfragen).
+
 **Live:** https://mvp-app-claude.web.app
 **GitHub:** https://github.com/twinstar2k/trainingsapp
 **Firebase-Projekt:** `mvp-app-claude` (europe-west3)
@@ -93,7 +95,7 @@ trainingsapp/
 - Google Login (signInWithPopup)
 - **Private Beta / Zugangs-Allowlist:** Eingeloggt ≠ freigeschaltet — nur gelistete Konten können die App nutzen (siehe Firebase-Konventionen). Fremde Konten sehen eine „Private Beta"-Sperrseite.
 - Studio-Verwaltung pro User
-- Übungskatalog (global, 50 Übungen Seed; clientseitig erweiterbar via „Neue Übung" UND bearbeitbar via Stift-Button auf der Exercises-Seite — Name/Muskelgruppe/context_dependent/repsProgression; Typ bleibt nach Anlage fix, kein Löschen)
+- Übungskatalog (global, 50 Übungen Seed; **nur Admin** pflegt ihn — anlegen via „Neue Übung" UND bearbeiten via Stift-Button auf der Exercises-Seite, Name/Muskelgruppe/context_dependent/repsProgression; Typ bleibt nach Anlage fix, kein Löschen. Nicht-Admins sehen den Katalog read-only.)
 - Training anlegen, Übungen + Sätze erfassen, abschließen
 - **Edit-Lock:** Abgeschlossene Trainings sind read-only — alle Edit-Affordances (Übung/Satz hinzufügen, löschen, Inputs, Toggles) erst nach „Training wieder öffnen" verfügbar
 - Körpergewicht-Historie mit Verlauf-Chart
@@ -133,7 +135,8 @@ Dann: [Aufgabe beschreiben]
 ## Firebase-Konventionen
 
 - Security Rules: deny-by-default, jede Collection muss abgedeckt sein
-- **Zugangs-Allowlist (Private Beta):** Top-Level-Collection `allowlist`, Doc-ID = Google-E-Mail in lowercase (exakt wie in Firebase Console → Authentication angezeigt; ein beliebiges Feld wie `note` genügt). Rules (`allowedUser()`) UND die KI-Function prüfen dagegen — eingeloggt ≠ freigeschaltet. Tester freischalten = Dokument in der Console anlegen, kein Deploy nötig. Pflege nur über die Console, Clients haben keinen Zugriff.
+- **Zugangs-Allowlist (Private Beta):** Top-Level-Collection `allowlist`, Doc-ID = Google-E-Mail in lowercase (exakt wie in Firebase Console → Authentication angezeigt; ein beliebiges Feld wie `note` genügt). Rules (`allowedUser()`) UND die KI-Function prüfen dagegen — eingeloggt ≠ freigeschaltet. Tester freischalten = Dokument in der Console anlegen, kein Deploy nötig. Pflege nur über die Console; ein Client darf seinen **eigenen** Eintrag lesen (für Freischaltung + Rolle), aber keinen fremden und keinen schreiben.
+- **Rollen via `note`-Feld:** Das `note`-Feld der Allowlist-Docs doppelt als Rolle. `note == "Admin"` (case-insensitive) ⇒ Admin und darf den globalen Übungskatalog anlegen/bearbeiten (Rules-Funktion `isAdmin()`, Client-Flag `useAuth().isAdmin`). Jeder andere Wert (z. B. `User`) ⇒ normaler Nutzer, Katalog read-only. Rollenwechsel = `note` in der Console ändern, kein Deploy nötig.
 - Dokument-IDs: Auto-ID für user-generierte Daten, sprechende IDs für Stammdaten
 - Subcollections für user-gebundene Daten unter `users/{uid}/`
 - Globale Daten (Übungskatalog) in Top-Level-Collection `exercises`
@@ -147,7 +150,7 @@ Dann: [Aufgabe beschreiben]
 - **1RM (Epley):** `weight × (1 + reps / 30)`, nur gültig für reps ≤ 15
 - **Standard-Metrik:** Max-Gewicht (nicht 1RM)
 - **Templates sind flexibel:** Übungen dürfen abweichen, kein starres Korsett
-- **Übungskatalog ist global UND von jedem freigeschalteten User schreibbar:** Die Rules kennen (noch) keine Admin-Rolle — `allowedUser()` darf Übungen anlegen und bearbeiten. Da der Katalog global ist, wirkt die Bearbeitung durch einen Tester für alle. In der Single-User-Phase unkritisch; sobald mehrere Konsumenten den Katalog teilen, wäre ein Ownership-/Admin-Konzept nötig (siehe `docs/BACKLOG.md`).
+- **Übungskatalog ist global, aber nur vom Admin schreibbar:** Lesen darf jeder Freigeschaltete, anlegen/bearbeiten nur der Admin (`isAdmin()` in den Rules, `note == "Admin"`). Da der Katalog global ist, wirken Admin-Änderungen für alle. Das war die „minimale" erste Stufe des Rollenkonzepts; ein volles Konzept (eigene User-Übungen vs. unveränderbare Basis-Übungen via `createdBy`/`isBase`) steht weiterhin im `docs/BACKLOG.md`.
 - **Studios sind pro User:** Jeder User pflegt eigene Studios
 - **Gewichtshistorie:** Neue Einträge ergänzen, nie überschreiben
 
