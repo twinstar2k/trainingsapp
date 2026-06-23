@@ -214,9 +214,14 @@ export function useTrainingSession(trainingId: string | undefined) {
   const toggleTrainingStatus = async (): Promise<'active' | 'completed' | null> => {
     if (!user || !db || !trainingId || !training) return null;
     const newStatus = training.status === 'active' ? 'completed' : 'active';
+    // completedAt nur beim ERSTEN Abschluss stempeln (wenn noch leer) — bleibt über
+    // Wieder-Öffnen/erneut-Abschließen stabil und markiert den echten Erst-Abschluss.
+    const stampCompletedAt = newStatus === 'completed' && training.completedAt == null;
     try {
-      await updateDoc(doc(db, 'users', user.uid, 'trainings', trainingId), { status: newStatus });
-      setTraining({ ...training, status: newStatus });
+      const update: { status: 'active' | 'completed'; completedAt?: number } = { status: newStatus };
+      if (stampCompletedAt) update.completedAt = Date.now();
+      await updateDoc(doc(db, 'users', user.uid, 'trainings', trainingId), update);
+      setTraining({ ...training, ...update });
       return newStatus;
     } catch (error) {
       console.error("Error updating training status:", error);

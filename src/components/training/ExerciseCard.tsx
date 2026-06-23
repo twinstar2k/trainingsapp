@@ -135,7 +135,7 @@ export function ExerciseCard({
             className="w-full py-2.5 mt-2 border border-primary/30 rounded-xl text-primary font-semibold text-sm flex items-center justify-center hover:bg-primary/5 transition-all duration-150"
           >
             <Sparkles className="w-4 h-4 mr-1.5" />
-            KI-Empfehlung
+            Coach fragen
           </button>
         )}
 
