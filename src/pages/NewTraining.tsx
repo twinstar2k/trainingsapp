@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
-import { collection, getDocs, addDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, writeBatch } from 'firebase/firestore';
 import { Studio } from '../types';
+import { useTemplates } from '../hooks/useTemplates';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { Dumbbell, MapPin, Calendar } from 'lucide-react';
+import { Dumbbell, MapPin, Calendar, ClipboardList } from 'lucide-react';
 
 export default function NewTraining() {
   const { user } = useAuth();
@@ -15,7 +16,10 @@ export default function NewTraining() {
 
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [studioId, setStudioId] = useState('');
+  const [templateId, setTemplateId] = useState(''); // '' = ohne Vorlage
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { templates } = useTemplates();
 
   useEffect(() => {
     if (!user || !db) return;
@@ -46,13 +50,28 @@ export default function NewTraining() {
 
     setIsSubmitting(true);
     try {
+      const template = templateId ? templates.find((t) => t.id === templateId) : undefined;
+
       const trainingsRef = collection(db, 'users', user.uid, 'trainings');
       const docRef = await addDoc(trainingsRef, {
         date,
         studioId,
         status: 'active',
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        ...(template ? { templateId: template.id } : {}),
       });
+
+      // Vorlage anwenden: Übungen als Skelett anlegen (keine Sätze) — gleiches Schema
+      // wie addExercise, hier gebündelt als Batch. Gewicht/Wdh kommen später aus Historie + Coach.
+      if (template && template.exerciseIds.length > 0) {
+        const batch = writeBatch(db);
+        const exercisesRef = collection(db, 'users', user.uid, 'trainings', docRef.id, 'exercises');
+        template.exerciseIds.forEach((exerciseId, order) => {
+          batch.set(doc(exercisesRef), { exerciseId, order, status: 'open' });
+        });
+        await batch.commit();
+      }
+
       navigate(`/trainings/${docRef.id}`);
     } catch (error) {
       console.error("Error creating training:", error);
@@ -119,6 +138,25 @@ export default function NewTraining() {
               ))}
             </select>
           </div>
+
+          {templates.length > 0 && (
+            <div>
+              <label className="flex items-center text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
+                <ClipboardList className="w-4 h-4 mr-2 text-outline" />
+                Vorlage (optional)
+              </label>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                className="w-full h-14 bg-surface-container-low ring-1 ring-outline-variant/30 rounded-2xl px-4 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-150 appearance-none"
+              >
+                <option value="">Ohne Vorlage</option>
+                {templates.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
         </div>
 

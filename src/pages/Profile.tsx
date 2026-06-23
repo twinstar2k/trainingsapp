@@ -4,7 +4,8 @@ import { seedExercises } from '../lib/seed';
 import { collection, getDocs, addDoc, deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Studio, GoalKey } from '../types';
-import { Trash2, Plus, LogOut, Database, Download } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Trash2, Plus, LogOut, Database, Download, ClipboardList, ChevronRight } from 'lucide-react';
 import { exportAllUserData, downloadBackup } from '../lib/export';
 import { GoalPicker } from '../components/ai/GoalPicker';
 import { AI_RECOMMENDATIONS_ENABLED } from '../lib/featureFlags';
@@ -171,6 +172,24 @@ export default function Profile() {
             </form>
           </div>
         </div>
+      </section>
+
+      {/* Vorlagen */}
+      <section>
+        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">Vorlagen</h3>
+        <Link
+          to="/templates"
+          className="w-full bg-surface-container-lowest border border-surface-container rounded-2xl p-4 flex items-center justify-between shadow-sm hover:border-primary/20 transition-all duration-150 active:scale-[0.99]"
+        >
+          <div className="flex items-center min-w-0">
+            <ClipboardList className="w-5 h-5 mr-3 text-outline shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium text-on-surface">Vorlagen verwalten</div>
+              <div className="text-xs text-on-surface-variant mt-0.5 truncate">Session-Skelette anlegen und beim Training-Start anwenden</div>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-outline shrink-0" />
+        </Link>
       </section>
 
       {/* Standard-Trainingsziel (Feature-Flag) */}

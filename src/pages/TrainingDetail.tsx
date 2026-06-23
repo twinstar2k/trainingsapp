@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Check, Plus, Trash2 } from 'lucide-react';
+import { Check, Plus, Trash2, BookmarkPlus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { PromptDialog } from '../components/ui/PromptDialog';
 import { CompletionCelebration } from '../components/ui/CompletionCelebration';
 import { RecommendationDialog } from '../components/ai/RecommendationDialog';
 import { ExerciseCard } from '../components/training/ExerciseCard';
 import { ExerciseCatalogModal } from '../components/training/ExerciseCatalogModal';
 import { useTrainingSession } from '../hooks/useTrainingSession';
+import { useTemplates } from '../hooks/useTemplates';
 
 // Seite = Komposition: Daten/Mutationen liegen in useTrainingSession,
 // die Übungs-UI in components/training/. Hier nur Header, Karten, Abschluss + Dialoge.
@@ -36,9 +38,11 @@ export default function TrainingDetail() {
     deleteTraining,
     applyRecommendation,
   } = useTrainingSession(id);
+  const { createTemplate } = useTemplates();
 
   const [showCatalog, setShowCatalog] = useState(false);
   const [showDeleteTraining, setShowDeleteTraining] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [celebrationNumber, setCelebrationNumber] = useState<number | undefined>(undefined);
   const [celebrationSeed, setCelebrationSeed] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -75,6 +79,13 @@ export default function TrainingDetail() {
     if (await deleteTraining()) navigate('/trainings');
   };
 
+  // Aktuelle Übungsliste (dedupliziert, in Reihenfolge) als Vorlage speichern.
+  const handleSaveTemplate = async (name: string) => {
+    const exerciseIds = [...new Set(exercises.map((e) => e.exerciseId))];
+    await createTemplate(name, exerciseIds);
+    setShowSaveTemplate(false);
+  };
+
   if (loading) return <div className="text-center py-12 text-on-surface-variant">Lade Training...</div>;
   if (!training) return <div className="text-center py-12 text-on-surface-variant">Training nicht gefunden.</div>;
 
@@ -100,6 +111,15 @@ export default function TrainingDetail() {
             )}>
               {training.status === 'active' ? 'Aktiv' : 'Abgeschlossen'}
             </div>
+            {exercises.length > 0 && (
+              <button
+                onClick={() => setShowSaveTemplate(true)}
+                title="Als Vorlage speichern"
+                className="p-2 text-outline hover:text-primary transition-colors rounded-xl hover:bg-primary/5"
+              >
+                <BookmarkPlus className="w-5 h-5" />
+              </button>
+            )}
             <button
               onClick={() => setShowDeleteTraining(true)}
               className="p-2 text-outline hover:text-error transition-colors rounded-xl hover:bg-error-container"
@@ -172,6 +192,16 @@ export default function TrainingDetail() {
         onConfirm={handleDeleteTraining}
         onCancel={() => setShowDeleteTraining(false)}
       />
+
+      {showSaveTemplate && (
+        <PromptDialog
+          title="Als Vorlage speichern"
+          placeholder="Name (z.B. Push A, Beine)"
+          initialValue={format(parseISO(training.date), 'EEEE', { locale: de })}
+          onConfirm={handleSaveTemplate}
+          onCancel={() => setShowSaveTemplate(false)}
+        />
+      )}
 
       {recommendExerciseId && training && (
         <RecommendationDialog

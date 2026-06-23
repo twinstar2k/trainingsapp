@@ -10,6 +10,7 @@ import NewTraining from './pages/NewTraining';
 import TrainingDetail from './pages/TrainingDetail';
 import Exercises from './pages/Exercises';
 import ExerciseDetail from './pages/ExerciseDetail';
+import Templates from './pages/Templates';
 
 const Login = () => {
   const { user, loading, signInWithGoogle } = useAuth();
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/trainings/:id" element={<ProtectedRoute><TrainingDetail /></ProtectedRoute>} />
           <Route path="/exercises" element={<ProtectedRoute><Exercises /></ProtectedRoute>} />
           <Route path="/exercises/:exerciseId" element={<ProtectedRoute><ExerciseDetail /></ProtectedRoute>} />
+          <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
           <Route path="/weight" element={<ProtectedRoute><Weight /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         </Routes>
