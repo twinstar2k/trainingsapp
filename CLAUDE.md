@@ -48,14 +48,15 @@ trainingsapp/
 │   ├── components/
 │   │   ├── layout/AppLayout.tsx       ← Bottom Navigation
 │   │   ├── training/                  ← Bausteine der Trainings-Seite (ExerciseCard, SetRow, ExerciseCatalogModal)
-│   │   ├── ui/ConfirmDialog.tsx
+│   │   ├── ui/ConfirmDialog.tsx       ← + PromptDialog.tsx (Name-Eingabe, z.B. Vorlage benennen)
 │   │   └── LastSessionLabel.tsx       ← "Zuletzt: 3×10@50kg"-Label
 │   ├── contexts/AuthContext.tsx       ← Google Auth (signInWithPopup)
 │   ├── hooks/
 │   │   ├── useExerciseProgress.ts     ← Fortschrittsdaten laden
 │   │   ├── useLastSession.ts          ← Letzte Session einer Übung
 │   │   ├── useRecommendation.ts       ← Callable getTrainingRecommendation aufrufen
-│   │   └── useTrainingSession.ts      ← Daten + alle Firestore-Mutationen eines Trainings
+│   │   ├── useTrainingSession.ts      ← Daten + alle Firestore-Mutationen eines Trainings
+│   │   └── useTemplates.ts            ← CRUD der Trainings-Vorlagen (users/{uid}/templates)
 │   ├── lib/
 │   │   ├── firebase.ts                ← Firebase-Initialisierung
 │   │   ├── seed.ts                    ← Übungskatalog-Seed
@@ -69,6 +70,7 @@ trainingsapp/
 │   │   ├── ExerciseDetail.tsx         ← Fortschrittschart + Summary
 │   │   ├── Exercises.tsx
 │   │   ├── Weight.tsx
+│   │   ├── Templates.tsx              ← Vorlagen-Verwaltung (anlegen/ordnen/löschen)
 │   │   └── Profile.tsx
 │   ├── components/ai/                 ← RecommendationDialog + Preview (KI-Empfehlung)
 │   ├── types/index.ts                 ← Alle TS-Typen (re-exportiert shared/ai-types)
@@ -90,13 +92,14 @@ trainingsapp/
 └── tsconfig.json
 ```
 
-## Implementierter Funktionsumfang (Stand 2026-06-11)
+## Implementierter Funktionsumfang (Stand 2026-06-23)
 
 - Google Login (signInWithPopup)
 - **Private Beta / Zugangs-Allowlist:** Eingeloggt ≠ freigeschaltet — nur gelistete Konten können die App nutzen (siehe Firebase-Konventionen). Fremde Konten sehen eine „Private Beta"-Sperrseite.
 - Studio-Verwaltung pro User
 - Übungskatalog (global, 50 Übungen Seed; **nur Admin** pflegt ihn — anlegen via „Neue Übung" UND bearbeiten via Stift-Button auf der Exercises-Seite, Name/Muskelgruppe/context_dependent/repsProgression; Typ bleibt nach Anlage fix, kein Löschen. Nicht-Admins sehen den Katalog read-only.)
 - Training anlegen, Übungen + Sätze erfassen, abschließen
+- **Trainings-Vorlagen (Templates):** Wiederverwendbare Session-Skelette (geordnete Übungsliste, keine Sätze — Gewicht/Wdh kommen aus Historie + Coach). Verwaltungsseite `/templates` (anlegen/umbenennen/löschen/ordnen), „Als Vorlage speichern" aus einem Training, „Mit Vorlage starten" in NewTraining (setzt `Training.templateId`). Typ `Template = { name, exerciseIds[], category?, createdAt }`; das optionale `category` ist reservierter Platz für die spätere Split-Anbindung (KI-Stufe 2).
 - **Edit-Lock:** Abgeschlossene Trainings sind read-only — alle Edit-Affordances (Übung/Satz hinzufügen, löschen, Inputs, Toggles) erst nach „Training wieder öffnen" verfügbar
 - Körpergewicht-Historie mit Verlauf-Chart
 - **Exercise Progress:**
