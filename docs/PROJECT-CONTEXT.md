@@ -18,16 +18,58 @@ Persönliche Web-App zur Erfassung und Analyse von Krafttraining. Die App beantw
 
 ## Tech-Stack
 
-| Komponente | Technologie |
-|------------|-------------|
-| Frontend | React 19 (TypeScript, Vite, mobile-first) |
-| UI-Bibliothek | Tailwind CSS v4 (Design-Tokens via `@theme` in `src/index.css`) |
-| Auth | Firebase Authentication (Google Login) |
-| Datenbank | Cloud Firestore (NoSQL) |
-| Hosting | Firebase Hosting |
-| Backend | Cloud Functions (Node 22, europe-west3) für die KI-Empfehlung — sonst Firestore Security Rules |
-| GCP-Projekt | mvp-app-claude (europe-west3) |
-| Entwicklung | Claude Code (CLI) |
+> Versionen abgeglichen mit `package.json` und `functions/package.json` (Stand 2026-06-16).
+
+### Frontend (App)
+
+| Bereich | Technologie | Version |
+|---------|-------------|---------|
+| Framework | React + React DOM | `^19.2.4` |
+| Sprache | TypeScript (strict mode) | `~5.9.3` |
+| Build-Tool | Vite | `^8.0.1` |
+| React-Plugin | `@vitejs/plugin-react` | `^6.0.1` |
+| Styling | Tailwind CSS v4 (`@tailwindcss/vite`) | `^4.1.14` |
+| Routing | `react-router-dom` | `^7.13.1` |
+| Charts | Recharts | `^3.8.0` |
+| Icons | `lucide-react` | `^0.546.0` |
+| Animationen | `motion` (Framer Motion) | `^12.23.24` |
+| Datums-Utils | `date-fns` | `^4.1.0` |
+| Class-Utils | `clsx` + `tailwind-merge` | `^2.1.1` / `^3.5.0` |
+| Firebase-Client-SDK | `firebase` | `^12.11.0` |
+
+**Tailwind-Besonderheit:** v4 ohne `tailwind.config.js` — Config via `@theme`-Block in `src/index.css`. Google Fonts via `<link>` in `index.html` (nicht CSS `@import`).
+
+### Backend / Cloud
+
+| Bereich | Technologie | Version / Detail |
+|---------|-------------|------------------|
+| Plattform | Firebase-Projekt `mvp-app-claude` | Region `europe-west3` |
+| Auth | Firebase Authentication | Google Login (`signInWithPopup`) |
+| Datenbank | Cloud Firestore (NoSQL) | Security Rules deny-by-default |
+| Hosting | Firebase Hosting | live: mvp-app-claude.web.app |
+| Functions | Cloud Functions | Node **22**, `firebase-functions ^7.2.5`, `firebase-admin ^12.6.0` |
+
+Cloud Function: Callable `getTrainingRecommendation` für die KI-Empfehlung. Sonstiger Datenzugriff läuft direkt über Firestore Security Rules.
+
+### KI-Schicht
+
+- **LLM-Gateway:** Requesty (`router.eu.requesty.ai`, EU, OpenAI-kompatibel)
+- **Secret:** `REQUESTY_API_KEY` in Google Secret Manager
+- **Feature-Flag:** `VITE_AI_RECOMMENDATIONS` (default AUS)
+- **Architektur:** Policy-first — deterministischer Coach-Kern (`shared/policy.ts`, Double Progression + RIR-Autoregulation + Trend/Plateau) rechnet, das LLM begründet nur. Siehe `docs/architecture/ai-coach-engine.md`.
+
+### Tooling & Struktur
+
+- **Linting:** ESLint `^9.39.4` (flat config) + `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`
+- **Geteilter Code:** `shared/` (Metriken, KI-Vertragstypen, Policy-Kern) — Single Source für App **und** Functions (ADR-04)
+- **Eval:** `eval/` — zero-dependency Eval-Harness + Offline-Tests (`npm test`)
+- **Indizes:** `firestore.indexes.json` (Composite: `status+date`, `status+studioId+date`)
+- **Entwicklung:** Claude Code (CLI)
+
+### Betrieb
+
+- **Deploy:** `npm run build && firebase deploy --only hosting` (analog für `functions` / `firestore:rules` / `firestore:indexes`)
+- **Backup:** nächtlicher Firestore-Dump via Cron (20:00) ins private Repo `twinstar2k/trainingsapp-backup` (eigenes Node-Projekt mit `firebase-admin`), plus clientseitiger JSON-Export (`src/lib/export.ts`)
 
 ## Kernkonzept: context_dependent
 
