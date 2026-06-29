@@ -145,6 +145,7 @@ Dann: [Aufgabe beschreiben]
 - Globale Daten (Übungskatalog) in Top-Level-Collection `exercises`
 - Neue Firestore-Indizes in `firestore.indexes.json` eintragen und mit `firebase deploy --only firestore:indexes` deployen
 - **Rules-Drift vermeiden:** Schreibt der Client neue Felder auf rule-validierte Docs (z. B. `exercises` mit `hasOnly`), MUSS `firestore.rules` im selben Change nachgezogen und deployt werden — sonst scheitern Writes zur Laufzeit mit „Missing or insufficient permissions"
+- **Firestore-Transport = erzwungenes Long-Polling:** `src/lib/firebase.ts` initialisiert den Client bewusst via `initializeFirestore(app, { experimentalForceLongPolling: true })` statt `getFirestore(app)`. Grund: Auf Mobilnetzen (Mobilfunk/Proxy/NAT) blieb die erste `getDocs`-Anfrage einer frisch geöffneten Liste sonst hängen (Dauer-Spinner, erst Reload/Tab-Wechsel löste es) — Firestores WebChannel-Streaming bzw. die Long-Polling-Auto-Erkennung gerät dort ins Stocken. Long-Polling macht jede Query zu einer eigenständigen HTTP-Anfrage (minimal höhere Latenz, dafür robust). **Nicht** auf `getFirestore` zurückbauen.
 
 ## Wichtige Geschäftsregeln
 

@@ -45,11 +45,13 @@ Persönliche Web-App zur Erfassung und Analyse von Krafttraining. Die App beantw
 |---------|-------------|------------------|
 | Plattform | Firebase-Projekt `mvp-app-claude` | Region `europe-west3` |
 | Auth | Firebase Authentication | Google Login (`signInWithPopup`) |
-| Datenbank | Cloud Firestore (NoSQL) | Security Rules deny-by-default |
+| Datenbank | Cloud Firestore (NoSQL) | Security Rules deny-by-default; Client mit erzwungenem Long-Polling |
 | Hosting | Firebase Hosting | live: mvp-app-claude.web.app |
 | Functions | Cloud Functions | Node **22**, `firebase-functions ^7.2.5`, `firebase-admin ^12.6.0` |
 
 Cloud Function: Callable `getTrainingRecommendation` für die KI-Empfehlung. Sonstiger Datenzugriff läuft direkt über Firestore Security Rules.
+
+**Firestore-Client-Transport:** In `src/lib/firebase.ts` wird der Client via `initializeFirestore(app, { experimentalForceLongPolling: true })` initialisiert (nicht `getFirestore`). Auf Mobilnetzen blieb die erste `getDocs`-Anfrage einer frisch geöffneten Liste sonst hängen — Long-Polling ist dort robuster. Details siehe CLAUDE.md → Firebase-Konventionen.
 
 ### KI-Schicht
 
