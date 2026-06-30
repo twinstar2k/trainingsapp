@@ -1,16 +1,7 @@
 import { Star } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { TrainingRating } from '../../types';
-
-// Labels der subjektiven Trainingsbewertung (1–4). Single Source für Input + Badge.
-const RATING_LABELS: Record<TrainingRating, string> = {
-  1: 'Schwach',
-  2: 'Ok',
-  3: 'Stark',
-  4: 'Super',
-};
-
-const VALUES: TrainingRating[] = [1, 2, 3, 4];
+import { RATING_LABELS, RATING_VALUES as VALUES } from '../../lib/rating';
 
 interface RatingInputProps {
   value?: TrainingRating;

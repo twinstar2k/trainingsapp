@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { Training, WeightEntry } from '../types';
+import { Training, WeightEntry, TrainingRating } from '../types';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Activity, Dumbbell, Scale, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { TrainingQualityCard, QualityEntry } from '../components/training/TrainingQualityCard';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [recentTrainings, setRecentTrainings] = useState<Training[]>([]);
+  const [qualityEntries, setQualityEntries] = useState<QualityEntry[]>([]);
   const [latestWeight, setLatestWeight] = useState<WeightEntry | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,11 +22,19 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const trainingsRef = collection(db, 'users', user.uid, 'trainings');
-        const qTrainings = query(trainingsRef, orderBy('date', 'desc'), limit(3));
+        const qTrainings = query(trainingsRef, orderBy('date', 'desc'), limit(30));
         const trainingDocs = await getDocs(qTrainings);
         const trainings: Training[] = [];
         trainingDocs.forEach(doc => trainings.push({ id: doc.id, ...doc.data() } as Training));
-        setRecentTrainings(trainings);
+        setRecentTrainings(trainings.slice(0, 3));
+
+        // Bewertete Einheiten (neueste 14) für den Qualitäts-Trend — aufsteigend für den Chart.
+        const rated = trainings
+          .filter(t => t.rating != null)
+          .slice(0, 14)
+          .map(t => ({ date: t.date, rating: t.rating as TrainingRating }))
+          .reverse();
+        setQualityEntries(rated);
 
         const weightRef = collection(db, 'users', user.uid, 'weightHistory');
         const qWeight = query(weightRef, orderBy('date', 'desc'), limit(1));
@@ -85,6 +95,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Trainingsqualität: Verlauf der subjektiven Sterne-Bewertung (nur wenn Historie da ist). */}
+      {recentTrainings.length > 0 && <TrainingQualityCard entries={qualityEntries} />}
 
       {/* Quick Actions */}
       <Link
