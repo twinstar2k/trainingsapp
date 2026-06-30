@@ -10,6 +10,7 @@ import { CompletionCelebration } from '../components/ui/CompletionCelebration';
 import { RecommendationDialog } from '../components/ai/RecommendationDialog';
 import { ExerciseCard } from '../components/training/ExerciseCard';
 import { ExerciseCatalogModal } from '../components/training/ExerciseCatalogModal';
+import { TrainingRatingInput } from '../components/training/TrainingRating';
 import { useTrainingSession } from '../hooks/useTrainingSession';
 import { useTemplates } from '../hooks/useTemplates';
 
@@ -34,6 +35,7 @@ export default function TrainingDetail() {
     toggleSetStatus,
     setRir,
     toggleTrainingStatus,
+    setRating,
     countCompletedTrainings,
     deleteTraining,
     applyRecommendation,
@@ -128,6 +130,14 @@ export default function TrainingDetail() {
             </button>
           </div>
         </div>
+
+        {/* Subjektive Trainingsbewertung — sichtbar/änderbar bei abgeschlossenen Trainings
+            (reine Selbsteinschätzung, daher auch unter dem Edit-Lock erlaubt). */}
+        {training.status === 'completed' && (
+          <div className="mt-2 pt-3 border-t border-surface-container flex justify-center">
+            <TrainingRatingInput value={training.rating} onChange={setRating} size="sm" />
+          </div>
+        )}
       </div>
 
       {/* Exercises */}
@@ -219,6 +229,8 @@ export default function TrainingDetail() {
         isOpen={showCelebration}
         trainingNumber={celebrationNumber}
         messageSeed={celebrationSeed}
+        rating={training.rating}
+        onRate={setRating}
         onClose={handleCelebrationClose}
       />
     </div>

@@ -61,6 +61,9 @@ export interface TrainingExercise {
   sets?: TrainingSet[]; // Loaded separately or nested depending on view
 }
 
+// Subjektive Trainingsqualität: 1=Schwach, 2=Ok, 3=Stark, 4=Super.
+export type TrainingRating = 1 | 2 | 3 | 4;
+
 export interface Training {
   id: string;
   date: string; // YYYY-MM-DD
@@ -71,6 +74,9 @@ export interface Training {
   // bleibt also über Wieder-Öffnen/erneut-Abschließen stabil. Fehlt bei Altdaten.
   completedAt?: number;
   notes?: string;
+  // Subjektive Trainingsqualität (1–4), beim Abschließen erfasst. Optional + reine
+  // Selbsteinschätzung → nicht unter dem Edit-Lock, jederzeit nachträglich änderbar.
+  rating?: TrainingRating;
 }
 
 export interface Template {

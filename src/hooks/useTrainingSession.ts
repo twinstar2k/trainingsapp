@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
-import { Training, TrainingExercise, TrainingSet, Exercise, RecommendationPayload, RirLevel } from '../types';
+import { Training, TrainingExercise, TrainingSet, Exercise, RecommendationPayload, RirLevel, TrainingRating } from '../types';
 
 // Eine Übung der laufenden Session: Trainings-Dokument, angereichert um Katalogdaten + geladene Sätze.
 export type SessionExercise = TrainingExercise & { details: Exercise; sets: TrainingSet[] };
@@ -229,6 +229,18 @@ export function useTrainingSession(trainingId: string | undefined) {
     }
   };
 
+  // Subjektive Trainingsbewertung (1–4) setzen. Optimistisch; reine Selbsteinschätzung,
+  // daher auch bei abgeschlossenen Trainings erlaubt (kein Edit-Lock).
+  const setRating = async (rating: TrainingRating) => {
+    if (!user || !db || !trainingId || !training) return;
+    setTraining({ ...training, rating });
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'trainings', trainingId), { rating });
+    } catch (error) {
+      console.error('Error updating training rating:', error);
+    }
+  };
+
   // Anzahl abgeschlossener Trainings (für die Celebration-Nummer). null bei Fehler.
   const countCompletedTrainings = async (): Promise<number | null> => {
     if (!user || !db) return null;
@@ -299,6 +311,7 @@ export function useTrainingSession(trainingId: string | undefined) {
     toggleSetStatus,
     setRir,
     toggleTrainingStatus,
+    setRating,
     countCompletedTrainings,
     deleteTraining,
     applyRecommendation,

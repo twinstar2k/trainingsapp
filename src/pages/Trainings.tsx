@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { Plus, Calendar, MapPin, ChevronRight } from 'lucide-react';
+import { TrainingRatingBadge } from '../components/training/TrainingRating';
 
 export default function Trainings() {
   const { user } = useAuth();
@@ -91,12 +92,15 @@ export default function Trainings() {
                   <div className="font-bold text-on-surface text-base mb-1">
                     {format(parseISO(training.date), 'EEEE, dd. MMM yyyy', { locale: de })}
                   </div>
-                  <div className="flex items-center text-xs text-on-surface-variant font-medium">
-                    <MapPin className="w-3.5 h-3.5 mr-1" />
-                    {training.studioName}
+                  <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-on-surface-variant font-medium">
+                    <span className="flex items-center">
+                      <MapPin className="w-3.5 h-3.5 mr-1" />
+                      {training.studioName}
+                    </span>
                     {training.status === 'active' && (
-                      <span className="ml-3 px-2 py-0.5 bg-primary/10 text-primary rounded-md font-semibold">Aktiv</span>
+                      <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-md font-semibold">Aktiv</span>
                     )}
+                    {training.rating && <TrainingRatingBadge value={training.rating} />}
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-outline" />
