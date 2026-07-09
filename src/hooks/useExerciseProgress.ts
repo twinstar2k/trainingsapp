@@ -7,11 +7,13 @@ import {
 } from 'firebase/firestore';
 import {
   bestSessionOneRM,
+  sessionMaxHold,
   sessionMaxReps,
   sessionMaxWeight,
   sessionPace,
   sessionTotalDistance,
   sessionTotalDuration,
+  sessionTotalHold,
   sessionTotalReps,
   sessionVolume,
 } from '../utils/metrics';
@@ -27,9 +29,11 @@ export interface SessionProgress {
   totalReps: number;
   totalDuration: number; // minutes
   totalDistance: number; // km
+  maxHold: number; // seconds (isometric)
+  totalHold: number; // seconds (isometric)
   pace: number | null; // decimal min/km
   bestSet: { reps: number; weight: number } | null;
-  allSets: Array<{ reps?: number; weight?: number; duration?: number; distance?: number }>;
+  allSets: Array<{ reps?: number; weight?: number; duration?: number; distance?: number; holdSeconds?: number }>;
 }
 
 export function useExerciseProgress(
@@ -100,6 +104,7 @@ export function useExerciseProgress(
               weight: d.data().weight as number | undefined,
               duration: d.data().duration as number | undefined,
               distance: d.data().distance as number | undefined,
+              holdSeconds: d.data().holdSeconds as number | undefined,
             }));
 
             if (sets.length === 0) return;
@@ -112,6 +117,8 @@ export function useExerciseProgress(
             const totalDuration = sessionTotalDuration(sets);
             const totalDistance = sessionTotalDistance(sets);
             const pace = sessionPace(sets);
+            const maxHold = sessionMaxHold(sets);
+            const totalHold = sessionTotalHold(sets);
 
             // Best set: highest weight among completed sets
             const weightedSets = sets.filter(s => s.weight != null && s.reps != null);
@@ -133,6 +140,8 @@ export function useExerciseProgress(
               totalReps,
               totalDuration,
               totalDistance,
+              maxHold,
+              totalHold,
               pace,
               bestSet,
               allSets: sets,
