@@ -9,6 +9,7 @@ const TYPE_OPTIONS: { value: ExerciseType; label: string }[] = [
   { value: 'weighted', label: 'Gewicht' },
   { value: 'reps_only', label: 'Nur Wiederholungen' },
   { value: 'cardio_basic', label: 'Cardio' },
+  { value: 'isometric', label: 'Isometrisch (Haltezeit)' },
 ];
 
 // Sentinel im Muskelgruppen-Dropdown: schaltet auf Freitext für eine neue Gruppe um.

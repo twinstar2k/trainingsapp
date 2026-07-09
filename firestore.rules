@@ -51,7 +51,7 @@ service cloud.firestore {
           && d.name is string
           && d.name.size() > 0
           && d.name.size() <= 100
-          && d.type in ['weighted', 'reps_only', 'cardio_basic']
+          && d.type in ['weighted', 'reps_only', 'cardio_basic', 'isometric']
           && d.muscleGroup is string
           && d.muscleGroup.size() > 0
           && d.muscleGroup.size() <= 50
