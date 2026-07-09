@@ -129,10 +129,12 @@ export function useTrainingSession(trainingId: string | undefined) {
       if (lastSet.weight !== undefined) newSetData.weight = lastSet.weight;
       if (lastSet.duration !== undefined) newSetData.duration = lastSet.duration;
       if (lastSet.distance !== undefined) newSetData.distance = lastSet.distance;
+      if (lastSet.holdSeconds !== undefined) newSetData.holdSeconds = lastSet.holdSeconds;
     } else {
       if (exercise.details.type === 'weighted') { newSetData.reps = 10; newSetData.weight = 0; }
       else if (exercise.details.type === 'reps_only') { newSetData.reps = 10; }
       else if (exercise.details.type === 'cardio_basic') { newSetData.duration = 15; newSetData.distance = 0; }
+      else if (exercise.details.type === 'isometric') { newSetData.holdSeconds = 0; }
     }
 
     try {

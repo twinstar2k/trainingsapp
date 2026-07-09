@@ -4,7 +4,7 @@
  * (functions/src importiert direkt). Siehe docs/architecture/ai-recommendation.md §2.
  */
 
-export type ExerciseType = 'weighted' | 'reps_only' | 'cardio_basic';
+export type ExerciseType = 'weighted' | 'reps_only' | 'cardio_basic' | 'isometric';
 
 /** Trainingsziel — steuert Rep-Range und Progressions-Charakter der Empfehlung. */
 export type GoalKey =

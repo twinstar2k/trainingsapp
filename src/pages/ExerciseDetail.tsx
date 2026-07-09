@@ -11,9 +11,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ChevronLeft, TrendingUp } from 'lucide-react';
-import { formatPace } from '../utils/metrics';
+import { formatPace, formatHoldTime } from '../utils/metrics';
 
-type Metric = 'maxWeight' | 'volume' | 'oneRM' | 'maxReps' | 'totalReps' | 'duration' | 'distance' | 'pace';
+type Metric = 'maxWeight' | 'volume' | 'oneRM' | 'maxReps' | 'totalReps' | 'duration' | 'distance' | 'pace' | 'maxHold' | 'totalHold';
 
 const METRIC_LABELS: Record<Metric, string> = {
   maxWeight: 'Max-Gewicht',
@@ -24,6 +24,8 @@ const METRIC_LABELS: Record<Metric, string> = {
   duration: 'Dauer',
   distance: 'Distanz',
   pace: 'Pace',
+  maxHold: 'Max. Haltezeit',
+  totalHold: 'Gesamt-Haltezeit',
 };
 
 const METRIC_UNIT: Record<Metric, string> = {
@@ -35,12 +37,15 @@ const METRIC_UNIT: Record<Metric, string> = {
   duration: 'min',
   distance: 'km',
   pace: 'min/km',
+  maxHold: '', // formatHoldTime liefert die Einheit mit ("45 s" / "1:30")
+  totalHold: '',
 };
 
 const METRICS_BY_TYPE: Record<Exercise['type'], Metric[]> = {
   weighted: ['maxWeight', 'volume', 'oneRM'],
   reps_only: ['maxReps', 'totalReps'],
   cardio_basic: ['distance', 'duration', 'pace'],
+  isometric: ['maxHold', 'totalHold'],
 };
 
 function metricValue(session: SessionProgress, metric: Metric): number | null {
@@ -53,6 +58,8 @@ function metricValue(session: SessionProgress, metric: Metric): number | null {
     case 'duration': return session.totalDuration || null;
     case 'distance': return session.totalDistance || null;
     case 'pace': return session.pace;
+    case 'maxHold': return session.maxHold || null;
+    case 'totalHold': return session.totalHold || null;
   }
 }
 
@@ -138,6 +145,7 @@ export default function ExerciseDetail() {
   const isCardio = exercise.type === 'cardio_basic';
   const isRepsMetric = activeMetric === 'maxReps' || activeMetric === 'totalReps';
   const isPaceMetric = activeMetric === 'pace';
+  const isHoldMetric = activeMetric === 'maxHold' || activeMetric === 'totalHold';
   const lowerIsBetter = isPaceMetric;
   const hasAnyDistance = sessions.some(s => s.totalDistance > 0);
   const availableMetrics = METRICS_BY_TYPE[exercise.type].filter(
@@ -148,6 +156,7 @@ export default function ExerciseDetail() {
   const formatValue = (value: number | null | undefined): string => {
     if (value == null) return '—';
     if (activeMetric === 'pace') return `${formatPace(value)} ${unit}`;
+    if (isHoldMetric) return formatHoldTime(value);
     if (activeMetric === 'distance') {
       return `${value.toFixed(value < 10 ? 1 : 0)} ${unit}`;
     }
@@ -238,6 +247,12 @@ export default function ExerciseDetail() {
                       {lastSession.pace != null && ` · ${formatPace(lastSession.pace)} min/km`}
                     </p>
                   )
+                ) : isHoldMetric ? (
+                  lastSession.maxHold > 0 && (
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      {lastSession.allSets.filter(s => s.holdSeconds != null && s.holdSeconds > 0).length} Sätze · max. {formatHoldTime(lastSession.maxHold)}
+                    </p>
+                  )
                 ) : isRepsMetric ? (
                   <p className="text-xs text-on-surface-variant mt-0.5">
                     {lastSession.allSets.filter(s => s.reps != null && s.reps > 0).length} Sätze · max. {lastSession.maxReps} Wdh
@@ -317,8 +332,12 @@ export default function ExerciseDetail() {
                     tickLine={false}
                     tick={{ fontSize: 11, fill: '#6d7a72' }}
                     reversed={isPaceMetric}
-                    tickFormatter={isPaceMetric ? (v: number) => formatPace(v) : undefined}
-                    unit={isPaceMetric ? undefined : ` ${unit}`}
+                    tickFormatter={
+                      isPaceMetric ? (v: number) => formatPace(v)
+                      : isHoldMetric ? (v: number) => formatHoldTime(v)
+                      : undefined
+                    }
+                    unit={isPaceMetric || isHoldMetric ? undefined : ` ${unit}`}
                   />
                   <Tooltip
                     formatter={(value: number) => [formatValue(value), METRIC_LABELS[activeMetric]]}

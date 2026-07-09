@@ -60,6 +60,10 @@ export const EXERCISE_SEED: Omit<Exercise, 'id'>[] = [
   { name: 'Indoor Cycle', type: 'cardio_basic', muscleGroup: 'Cardio', contextDependent: false },
   { name: 'Laufband', type: 'cardio_basic', muscleGroup: 'Cardio', contextDependent: false },
   { name: 'Rudern Ergometer', type: 'cardio_basic', muscleGroup: 'Cardio', contextDependent: false },
+
+  // Isometrisch (Haltezeit)
+  { name: 'Unterarmstütz (Plank)', type: 'isometric', muscleGroup: 'Core', contextDependent: false },
+  { name: 'Wandsitz', type: 'isometric', muscleGroup: 'Beine', contextDependent: false },
 ];
 
 export async function seedExercises() {

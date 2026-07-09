@@ -92,12 +92,12 @@ trainingsapp/
 └── tsconfig.json
 ```
 
-## Implementierter Funktionsumfang (Stand 2026-06-23)
+## Implementierter Funktionsumfang (Stand 2026-07-09)
 
 - Google Login (signInWithPopup)
 - **Private Beta / Zugangs-Allowlist:** Eingeloggt ≠ freigeschaltet — nur gelistete Konten können die App nutzen (siehe Firebase-Konventionen). Fremde Konten sehen eine „Private Beta"-Sperrseite.
 - Studio-Verwaltung pro User
-- Übungskatalog (global, 50 Übungen Seed; **nur Admin** pflegt ihn — anlegen via „Neue Übung" UND bearbeiten via Stift-Button auf der Exercises-Seite, Name/Muskelgruppe/context_dependent/repsProgression; Typ bleibt nach Anlage fix, kein Löschen. Nicht-Admins sehen den Katalog read-only.)
+- Übungskatalog (global, 52 Übungen Seed; **nur Admin** pflegt ihn — anlegen via „Neue Übung" UND bearbeiten via Stift-Button auf der Exercises-Seite, Name/Muskelgruppe/context_dependent/repsProgression; Typ bleibt nach Anlage fix, kein Löschen. Nicht-Admins sehen den Katalog read-only.)
 - Training anlegen, Übungen + Sätze erfassen, abschließen
 - **Trainings-Vorlagen (Templates):** Wiederverwendbare Session-Skelette (geordnete Übungsliste, keine Sätze — Gewicht/Wdh kommen aus Historie + Coach). Verwaltungsseite `/templates` (anlegen/umbenennen/löschen/ordnen), „Als Vorlage speichern" aus einem Training, „Mit Vorlage starten" in NewTraining (setzt `Training.templateId`). Typ `Template = { name, exerciseIds[], category?, createdAt }`; das optionale `category` ist reservierter Platz für die spätere Split-Anbindung (KI-Stufe 2).
 - **Edit-Lock:** Abgeschlossene Trainings sind read-only — alle Edit-Affordances (Übung/Satz hinzufügen, löschen, Inputs, Toggles) erst nach „Training wieder öffnen" verfügbar
@@ -105,8 +105,9 @@ trainingsapp/
 - **Exercise Progress:**
   - `weighted`: Max-Gewicht / Volumen / 1RM (kg)
   - `reps_only`: Max. Wdh / Gesamt Wdh (Wdh) — für Bodyweight-Übungen wie Beinheben
+  - `isometric`: Max. Haltezeit / Gesamt-Haltezeit — für statische Übungen wie Plank/Wandsitz, Erfassung in Min + Sek (gespeichert als `holdSeconds`, Sekunden)
   - „Zuletzt"-Label im aktiven Training
-- **KI-Trainingsempfehlung (Flag-gesteuert, `VITE_AI_RECOMMENDATIONS`):** Pro Übung, Policy-first — deterministischer Coach-Kern (`shared/policy.ts`, Double Progression + RIR-Autoregulation + Trend/Plateau) rechnet, das LLM begründet nur. Callable `getTrainingRecommendation` über EU-Gateway. Konzept: `docs/architecture/ai-coach-engine.md`.
+- **KI-Trainingsempfehlung (Flag-gesteuert, `VITE_AI_RECOMMENDATIONS`):** Pro Übung, Policy-first — deterministischer Coach-Kern (`shared/policy.ts`, Double Progression + RIR-Autoregulation + Trend/Plateau) rechnet, das LLM begründet nur. Callable `getTrainingRecommendation` über EU-Gateway. Konzept: `docs/architecture/ai-coach-engine.md`. Coach-Button nur für weighted/reps_only (isometric/cardio bewusst ohne Coach).
 - **Daten-Export:** Button im Profil → JSON-Dump aller Userdaten (`src/lib/export.ts`)
 
 ## Agenten-Workflow
