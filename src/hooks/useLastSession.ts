@@ -57,11 +57,15 @@ export function useLastSession(
           const sets = setsSnap.docs.map(d => ({
             reps: d.data().reps as number | undefined,
             weight: d.data().weight as number | undefined,
+            holdSeconds: d.data().holdSeconds as number | undefined,
           }));
 
           if (sets.length === 0) continue;
 
-          const type = exerciseType === 'weighted' ? 'weighted' : 'reps_only';
+          const type =
+            exerciseType === 'weighted' || exerciseType === 'isometric'
+              ? exerciseType
+              : 'reps_only';
           const formatted = formatLastSessionLabel(sets, type);
           setLabel(formatted || null);
           return;
