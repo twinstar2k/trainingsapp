@@ -47,6 +47,7 @@ export interface TrainingSet {
   weight?: number;
   duration?: number; // in minutes
   distance?: number; // in km
+  holdSeconds?: number; // Haltezeit in Sekunden (isometric)
   status: 'open' | 'done';
   order: number;
 }

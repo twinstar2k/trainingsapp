@@ -19,6 +19,7 @@ export interface SetData {
   weight?: number;
   duration?: number; // minutes
   distance?: number; // km
+  holdSeconds?: number; // Haltezeit in Sekunden (isometric)
 }
 
 /**
@@ -76,6 +77,28 @@ export function sessionTotalDistance(sets: SetData[]): number {
   return sets.reduce((sum, s) => sum + (s.distance ?? 0), 0);
 }
 
+/** Longest hold in seconds in any single set (for isometric exercises). */
+export function sessionMaxHold(sets: SetData[]): number {
+  return sets.reduce((max, s) => {
+    if (s.holdSeconds == null) return max;
+    return s.holdSeconds > max ? s.holdSeconds : max;
+  }, 0);
+}
+
+/** Total hold time in seconds summed across all sets. */
+export function sessionTotalHold(sets: SetData[]): number {
+  return sets.reduce((sum, s) => sum + (s.holdSeconds ?? 0), 0);
+}
+
+/** Format hold seconds as "45 s" (< 1 min) or "M:SS" (e.g. 90 → "1:30"). */
+export function formatHoldTime(totalSeconds: number): string {
+  const rounded = Math.round(totalSeconds);
+  if (rounded < 60) return `${rounded} s`;
+  const min = Math.floor(rounded / 60);
+  const sec = rounded % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
 /**
  * Pace as decimal minutes per km (totalMin / totalKm).
  * Returns null when distance is 0 or duration is 0.
@@ -101,8 +124,23 @@ export function formatPace(paceMin: number): string {
  * Weighted: "3 × 10 @ 50 kg" (wenn alle Sätze gleich)
  *           "bester Satz: 10 Wdh @ 50 kg" (wenn Sätze gemischt)
  * Reps only: "3 × 12 Wdh" or "max. 15 Wdh"
+ * Isometric: "3 × 1:30" or "max. 1:30"
  */
-export function formatLastSessionLabel(sets: SetData[], type: 'weighted' | 'reps_only'): string {
+export function formatLastSessionLabel(
+  sets: SetData[],
+  type: 'weighted' | 'reps_only' | 'isometric'
+): string {
+  if (type === 'isometric') {
+    const holdSets = sets.filter(s => s.holdSeconds != null && s.holdSeconds > 0);
+    if (holdSets.length === 0) return '';
+    const maxHold = sessionMaxHold(holdSets);
+    const allSame = holdSets.every(s => s.holdSeconds === holdSets[0].holdSeconds);
+    if (allSame && holdSets.length > 1) {
+      return `${holdSets.length} × ${formatHoldTime(maxHold)}`;
+    }
+    return `max. ${formatHoldTime(maxHold)}`;
+  }
+
   const doneSets = sets.filter(s => s.reps != null && s.reps > 0);
   if (doneSets.length === 0) return '';
 
