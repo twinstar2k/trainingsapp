@@ -3,7 +3,7 @@ import { cn } from '../../lib/utils';
 import type { ExerciseType, TrainingSet } from '../../types';
 
 // Nur die numerischen Eingabefelder eines Satzes — der Status läuft separat über onToggleStatus.
-export type NumericSetField = 'weight' | 'reps' | 'duration' | 'distance';
+export type NumericSetField = 'weight' | 'reps' | 'duration' | 'distance' | 'holdSeconds';
 
 interface SetRowProps {
   set: TrainingSet;
@@ -76,6 +76,35 @@ export function SetRow({ set, index, type, isActive, onUpdate, onToggleStatus, o
             step="0.1"
             value={set.distance || ''}
             onChange={(e) => onUpdate('distance', parseFloat(e.target.value) || 0)}
+            disabled={!isActive}
+            className={INPUT_CLASS}
+            placeholder="0"
+          />
+        </>
+      )}
+
+      {type === 'isometric' && (
+        <>
+          <input
+            type="number"
+            min="0"
+            value={set.holdSeconds ? Math.floor(set.holdSeconds / 60) : ''}
+            onChange={(e) => {
+              const min = parseInt(e.target.value) || 0;
+              onUpdate('holdSeconds', min * 60 + ((set.holdSeconds ?? 0) % 60));
+            }}
+            disabled={!isActive}
+            className={INPUT_CLASS}
+            placeholder="0"
+          />
+          <input
+            type="number"
+            min="0"
+            value={set.holdSeconds ? set.holdSeconds % 60 : ''}
+            onChange={(e) => {
+              const sek = parseInt(e.target.value) || 0;
+              onUpdate('holdSeconds', Math.floor((set.holdSeconds ?? 0) / 60) * 60 + sek);
+            }}
             disabled={!isActive}
             className={INPUT_CLASS}
             placeholder="0"

@@ -100,6 +100,12 @@ export function ExerciseCard({
                 <div className="flex-1 text-center">km</div>
               </>
             )}
+            {details.type === 'isometric' && (
+              <>
+                <div className="flex-1 text-center">Min</div>
+                <div className="flex-1 text-center">Sek</div>
+              </>
+            )}
             <div className="w-10" />
           </div>
         )}
@@ -128,8 +134,10 @@ export function ExerciseCard({
           </button>
         )}
 
-        {/* KI-Empfehlung pro Übung (Feature-Flag) — nur solange die Übung noch leer ist. */}
-        {isActive && AI_RECOMMENDATIONS_ENABLED && sets.length === 0 && (
+        {/* KI-Empfehlung pro Übung (Feature-Flag) — nur solange die Übung noch leer ist.
+            Nur weighted/reps_only: der Policy-Kern kennt keine Zeit-/Cardio-Progression. */}
+        {isActive && AI_RECOMMENDATIONS_ENABLED && sets.length === 0 &&
+          (details.type === 'weighted' || details.type === 'reps_only') && (
           <button
             onClick={onRecommend}
             className="w-full py-2.5 mt-2 border border-primary/30 rounded-xl text-primary font-semibold text-sm flex items-center justify-center hover:bg-primary/5 transition-all duration-150"
