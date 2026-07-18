@@ -53,7 +53,7 @@ trainingsapp/
 │   ├── contexts/AuthContext.tsx       ← Google Auth (signInWithPopup)
 │   ├── hooks/
 │   │   ├── useExerciseProgress.ts     ← Fortschrittsdaten laden
-│   │   ├── useLastSession.ts          ← Letzte Session einer Übung
+│   │   ├── useExerciseReference.ts    ← Zuletzt-Label + Bestleistung einer Übung (ein Query-Durchlauf)
 │   │   ├── useRecommendation.ts       ← Callable getTrainingRecommendation aufrufen
 │   │   ├── useTrainingSession.ts      ← Daten + alle Firestore-Mutationen eines Trainings
 │   │   └── useTemplates.ts            ← CRUD der Trainings-Vorlagen (users/{uid}/templates)
@@ -92,7 +92,7 @@ trainingsapp/
 └── tsconfig.json
 ```
 
-## Implementierter Funktionsumfang (Stand 2026-07-09)
+## Implementierter Funktionsumfang (Stand 2026-07-18)
 
 - Google Login (signInWithPopup)
 - **Private Beta / Zugangs-Allowlist:** Eingeloggt ≠ freigeschaltet — nur gelistete Konten können die App nutzen (siehe Firebase-Konventionen). Fremde Konten sehen eine „Private Beta"-Sperrseite.
@@ -107,6 +107,7 @@ trainingsapp/
   - `reps_only`: Max. Wdh / Gesamt Wdh (Wdh) — für Bodyweight-Übungen wie Beinheben
   - `isometric`: Max. Haltezeit / Gesamt-Haltezeit — für statische Übungen wie Plank/Wandsitz, Erfassung in Min + Sek (gespeichert als `holdSeconds`, Sekunden)
   - „Zuletzt"-Label im aktiven Training
+- **Live-Progressionsanzeige im aktiven Training:** Fortschrittsbalken in der Übungskarte zeigt live, wie nah die abgehakten Sätze an der Bestleistung sind (weighted: Volumen, reps_only: Gesamt-Wdh, isometric: Gesamt-Haltezeit; letzte 20 Sessions als Basis). Ab Bestwert: Amber + „Bestleistung übertroffen!". Hook `src/hooks/useExerciseReference.ts` (ersetzt `useLastSession`, liefert Zuletzt-Label + Bestwert in einem Durchlauf), Komponente `src/components/training/LiveProgressBar.tsx`.
 - **KI-Trainingsempfehlung (Flag-gesteuert, `VITE_AI_RECOMMENDATIONS`):** Pro Übung, Policy-first — deterministischer Coach-Kern (`shared/policy.ts`, Double Progression + RIR-Autoregulation + Trend/Plateau) rechnet, das LLM begründet nur. Callable `getTrainingRecommendation` über EU-Gateway. Konzept: `docs/architecture/ai-coach-engine.md`. Coach-Button nur für weighted/reps_only (isometric/cardio bewusst ohne Coach).
 - **Daten-Export:** Button im Profil → JSON-Dump aller Userdaten (`src/lib/export.ts`)
 
