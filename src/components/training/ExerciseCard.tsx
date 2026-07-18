@@ -60,23 +60,18 @@ export function ExerciseCard({
       <div className="p-4 border-b border-surface-container bg-surface-container-low">
         <div className="flex justify-between items-center">
           <div>
+            {/* Muskelgruppe klein am Namen; Studio-gebunden bewusst nicht mehr in der Karte —
+                die Info zählt bei der Übungsauswahl (Katalog/Detailseite), nicht im Training. */}
             <button
               onClick={() => navigate(`/exercises/${details.id}`)}
               className="font-bold text-on-surface hover:text-primary transition-colors text-left"
             >
               {details.name}
-            </button>
-            {isActive && <LastSessionLabel label={lastLabel} />}
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md">
+              <span className="ml-1.5 px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md align-middle">
                 {details.muscleGroup}
               </span>
-              {details.contextDependent && (
-                <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
-                  Studio-gebunden
-                </span>
-              )}
-            </div>
+            </button>
+            {isActive && <LastSessionLabel label={lastLabel} />}
           </div>
           {isActive && (
             <button
