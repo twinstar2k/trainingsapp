@@ -36,3 +36,4 @@ backup/
 
 # Lokale Präsentation (nicht Teil des Repos)
 docs/praesentation.html
+.superpowers/
