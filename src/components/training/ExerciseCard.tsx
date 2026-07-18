@@ -5,6 +5,8 @@ import type { RirLevel } from '../../types';
 import type { SessionExercise } from '../../hooks/useTrainingSession';
 import { LastSessionLabel } from '../LastSessionLabel';
 import { AI_RECOMMENDATIONS_ENABLED } from '../../lib/featureFlags';
+import { useExerciseReference, referenceSessionMetric } from '../../hooks/useExerciseReference';
+import { LiveProgressBar } from './LiveProgressBar';
 import { SetRow, type NumericSetField } from './SetRow';
 
 // Reserve (RIR) am Satzende — Signal für die KI-Autoregulation. 2 = 2+ in Reserve … 0 = Versagen.
@@ -43,42 +45,50 @@ export function ExerciseCard({
   const navigate = useNavigate();
   const { details, sets } = exercise;
 
+  // Zuletzt-Label + Bestleistung in einem Query-Durchlauf; lädt nur im aktiven Training.
+  const { label: lastLabel, best } = useExerciseReference(
+    details.id, details.type, details.contextDependent, studioId, isActive
+  );
+  // Live-Wert: nur abgehakte Sätze zählen (vorbelegte Plansätze verfälschen nichts)
+  const liveValue = referenceSessionMetric(
+    sets.filter(s => s.status === 'done'),
+    details.type
+  );
+
   return (
     <div className="bg-surface-container-lowest rounded-2xl border border-surface-container shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-surface-container flex justify-between items-center bg-surface-container-low">
-        <div>
-          <button
-            onClick={() => navigate(`/exercises/${details.id}`)}
-            className="font-bold text-on-surface hover:text-primary transition-colors text-left"
-          >
-            {details.name}
-          </button>
-          {isActive && (
-            <LastSessionLabel
-              exerciseId={details.id}
-              exerciseType={details.type}
-              contextDependent={details.contextDependent}
-              currentStudioId={studioId}
-            />
-          )}
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md">
-              {details.muscleGroup}
-            </span>
-            {details.contextDependent && (
-              <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
-                Studio-gebunden
+      <div className="p-4 border-b border-surface-container bg-surface-container-low">
+        <div className="flex justify-between items-center">
+          <div>
+            <button
+              onClick={() => navigate(`/exercises/${details.id}`)}
+              className="font-bold text-on-surface hover:text-primary transition-colors text-left"
+            >
+              {details.name}
+            </button>
+            {isActive && <LastSessionLabel label={lastLabel} />}
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md">
+                {details.muscleGroup}
               </span>
-            )}
+              {details.contextDependent && (
+                <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
+                  Studio-gebunden
+                </span>
+              )}
+            </div>
           </div>
+          {isActive && (
+            <button
+              onClick={onDelete}
+              className="text-outline hover:text-error p-2 -mr-2 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        {isActive && (
-          <button
-            onClick={onDelete}
-            className="text-outline hover:text-error p-2 -mr-2 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+        {isActive && best && details.type !== 'cardio_basic' && (
+          <LiveProgressBar current={liveValue} best={best} type={details.type} />
         )}
       </div>
 

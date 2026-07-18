@@ -1,17 +1,10 @@
-import { ExerciseType } from '../types';
-import { useLastSession } from '../hooks/useLastSession';
-
 interface Props {
-  exerciseId: string;
-  exerciseType: ExerciseType;
-  contextDependent: boolean;
-  currentStudioId: string;
+  label: string | null;
 }
 
-export function LastSessionLabel({ exerciseId, exerciseType, contextDependent, currentStudioId }: Props) {
-  const { label, loading } = useLastSession(exerciseId, exerciseType, contextDependent, currentStudioId);
-
-  if (loading || !label) return null;
+// Rein präsentational — die Daten liefert useExerciseReference (Aufruf in der ExerciseCard).
+export function LastSessionLabel({ label }: Props) {
+  if (!label) return null;
 
   return (
     <span className="text-xs text-outline mt-0.5 block">
