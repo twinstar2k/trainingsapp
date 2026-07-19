@@ -6,12 +6,15 @@ interface PromptDialogProps {
   placeholder?: string;
   initialValue?: string;
   confirmLabel?: string;
+  // Erlaubt das Bestätigen einer leeren Eingabe (onConfirm erhält dann '') —
+  // für "leer = zurücksetzen"-Fälle wie das Entfernen des Spitznamens.
+  allowEmpty?: boolean;
   onConfirm: (value: string) => void;
   onCancel: () => void;
 }
 
 // Kleiner Eingabe-Dialog (ein Textfeld), Stil analog ConfirmDialog.
-// Genutzt für "Als Vorlage speichern" und "Vorlage umbenennen".
+// Genutzt für "Als Vorlage speichern", "Vorlage umbenennen" und den Spitznamen.
 // Wird vom Aufrufer nur bei Bedarf gemountet (kein isOpen) — so startet der
 // State bei jedem Öffnen frisch mit initialValue (idiomatisch statt Effekt-Sync).
 export function PromptDialog({
@@ -19,6 +22,7 @@ export function PromptDialog({
   placeholder,
   initialValue = '',
   confirmLabel = 'Speichern',
+  allowEmpty = false,
   onConfirm,
   onCancel,
 }: PromptDialogProps) {
@@ -26,7 +30,7 @@ export function PromptDialog({
 
   const trimmed = value.trim();
   const submit = () => {
-    if (!trimmed) return;
+    if (!trimmed && !allowEmpty) return;
     onConfirm(trimmed);
   };
 
@@ -57,7 +61,7 @@ export function PromptDialog({
           </button>
           <button
             onClick={submit}
-            disabled={!trimmed}
+            disabled={!trimmed && !allowEmpty}
             className="px-4 py-2 rounded-xl font-medium bg-primary text-on-primary hover:bg-primary-container transition-colors disabled:opacity-50"
           >
             {confirmLabel}

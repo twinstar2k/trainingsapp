@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth, googleProvider, db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteField } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -10,6 +10,11 @@ interface AuthContextType {
   accessDenied: boolean;
   // true = eigener Allowlist-Eintrag trägt note == "Admin" → darf den Katalog pflegen.
   isAdmin: boolean;
+  // Optionaler Spitzname (users/{uid}.nickname) — überschreibt den Google-Vornamen.
+  nickname: string | null;
+  // Aufgelöster Anzeigename: Spitzname → Google-Vorname → 'Athlet'.
+  firstName: string;
+  updateNickname: (nickname: string | null) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -19,6 +24,9 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   accessDenied: false,
   isAdmin: false,
+  nickname: null,
+  firstName: 'Athlet',
+  updateNickname: async () => {},
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
@@ -33,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [nickname, setNickname] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth) {
@@ -44,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       setAccessDenied(false);
       setIsAdmin(false);
+      setNickname(null);
 
       try {
         if (currentUser && db) {
@@ -56,6 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: currentUser.email || '',
               createdAt: Date.now(),
             });
+          } else {
+            const storedNickname = userSnap.data()?.nickname;
+            if (typeof storedNickname === 'string' && storedNickname.trim()) {
+              setNickname(storedNickname);
+            }
           }
 
           // Rolle aus dem eigenen Allowlist-Eintrag lesen (Rules erlauben Self-Read).
@@ -106,6 +121,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Leerer/null-Wert entfernt das Feld → Fallback auf den Google-Namen.
+  // Fehler bewusst nicht geschluckt — der Aufrufer entscheidet über die Anzeige.
+  const updateNickname = async (next: string | null) => {
+    if (!user || !db) return;
+    const trimmed = next?.trim().slice(0, 30) ?? '';
+    const userRef = doc(db, 'users', user.uid);
+    if (trimmed) {
+      await setDoc(userRef, { nickname: trimmed }, { merge: true });
+      setNickname(trimmed);
+    } else {
+      await setDoc(userRef, { nickname: deleteField() }, { merge: true });
+      setNickname(null);
+    }
+  };
+
   const signOut = async () => {
     if (!auth) return;
     try {
@@ -115,8 +145,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const firstName = nickname || user?.displayName?.split(' ')[0] || 'Athlet';
+
   return (
-    <AuthContext.Provider value={{ user, loading, accessDenied, isAdmin, signInWithGoogle, signOut }}>
+    <AuthContext.Provider
+      value={{ user, loading, accessDenied, isAdmin, nickname, firstName, updateNickname, signInWithGoogle, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

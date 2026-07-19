@@ -5,19 +5,22 @@ import { collection, getDocs, addDoc, deleteDoc, doc, getDoc, setDoc } from 'fir
 import { db } from '../lib/firebase';
 import { Studio, GoalKey } from '../types';
 import { Link } from 'react-router-dom';
-import { Trash2, Plus, LogOut, Database, Download, ClipboardList, ChevronRight } from 'lucide-react';
+import { Trash2, Plus, LogOut, Database, Download, ClipboardList, ChevronRight, Pencil } from 'lucide-react';
 import { exportAllUserData, downloadBackup } from '../lib/export';
 import { GoalPicker } from '../components/ai/GoalPicker';
 import { AI_RECOMMENDATIONS_ENABLED } from '../lib/featureFlags';
+import { PromptDialog } from '../components/ui/PromptDialog';
 
 export default function Profile() {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, signOut, nickname, firstName, updateNickname } = useAuth();
   const [studios, setStudios] = useState<Studio[]>([]);
   const [newStudioName, setNewStudioName] = useState('');
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [goal, setGoal] = useState<GoalKey | null>(null);
+  const [editingNickname, setEditingNickname] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
 
   useEffect(() => {
     if (!user || !db) return;
@@ -60,6 +63,16 @@ export default function Profile() {
       await setDoc(doc(db, 'users', user.uid), { trainingGoal: g }, { merge: true });
     } catch (error) {
       console.error('Error saving training goal:', error);
+    }
+  };
+
+  const handleNicknameConfirm = async (value: string) => {
+    setEditingNickname(false);
+    try {
+      await updateNickname(value || null);
+    } catch (error) {
+      console.error('Error saving nickname:', error);
+      alert('Spitzname konnte nicht gespeichert werden.');
     }
   };
 
@@ -122,9 +135,66 @@ export default function Profile() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface mb-1">Profil & Einstellungen</h2>
-        <p className="text-on-surface-variant text-sm">{user?.email}</p>
+        <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface mb-4">Profil & Einstellungen</h2>
+
+        {/* Wer bin ich: Google-Foto + Name (bzw. Spitzname), E-Mail — bewusst ohne
+            weitere Profilfelder, siehe Transparenz-Block darunter. */}
+        <div className="flex items-center gap-4">
+          {user?.photoURL && !photoError ? (
+            <img
+              src={user.photoURL}
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={() => setPhotoError(true)}
+              className="w-14 h-14 rounded-full object-cover ring-1 ring-outline-variant/30 shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-primary-container text-primary flex items-center justify-center text-xl font-bold shrink-0">
+              {firstName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-lg font-bold text-on-surface truncate">
+                {nickname ?? user?.displayName ?? 'Athlet'}
+              </span>
+              <button
+                onClick={() => setEditingNickname(true)}
+                className="text-outline hover:text-primary p-1.5 -my-1.5 transition-colors shrink-0"
+                aria-label="Spitznamen bearbeiten"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-on-surface-variant text-sm truncate">{user?.email}</p>
+          </div>
+        </div>
+
+        {/* Transparenz statt Datenfelder: warum es hier kein Alter/Geschlecht gibt. */}
+        <details className="group mt-4 bg-surface-container-lowest rounded-2xl border border-surface-container shadow-sm">
+          <summary className="p-4 flex items-center justify-between cursor-pointer list-none text-sm font-medium text-on-surface">
+            Warum fragen wir nicht nach Alter & Geschlecht?
+            <ChevronRight className="w-4 h-4 text-outline shrink-0 transition-transform group-open:rotate-90" />
+          </summary>
+          <p className="px-4 pb-4 text-sm text-on-surface-variant">
+            Dein Coach richtet sich nach deiner echten Trainingshistorie — was du tatsächlich
+            leistest und wie sich dein Training entwickelt — statt nach Durchschnittswerten für
+            Alter oder Geschlecht. Deshalb erheben wir nur Daten, die dein Training wirklich
+            verbessern. Nicht mehr.
+          </p>
+        </details>
       </div>
+
+      {editingNickname && (
+        <PromptDialog
+          title="Spitzname"
+          placeholder="Leer lassen für deinen Google-Namen"
+          initialValue={nickname ?? ''}
+          allowEmpty
+          onConfirm={handleNicknameConfirm}
+          onCancel={() => setEditingNickname(false)}
+        />
+      )}
 
       {/* Studios Management */}
       <section>
