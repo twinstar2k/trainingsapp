@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 import { TrainingQualityCard, QualityEntry } from '../components/training/TrainingQualityCard';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, firstName } = useAuth();
   const [recentTrainings, setRecentTrainings] = useState<Training[]>([]);
   const [qualityEntries, setQualityEntries] = useState<QualityEntry[]>([]);
   const [latestWeight, setLatestWeight] = useState<WeightEntry | null>(null);
@@ -61,7 +61,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">
-          Hallo {user?.displayName?.split(' ')[0] || 'Athlet'}!
+          Hallo {firstName}!
         </h2>
       </div>
 
