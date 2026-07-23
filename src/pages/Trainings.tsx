@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
@@ -8,11 +8,16 @@ import { de } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { Plus, Calendar, MapPin, ChevronRight } from 'lucide-react';
 import { TrainingRatingBadge } from '../components/training/TrainingRating';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
+
+// Monats-Key eines Trainings, z. B. "2026-07" — Basis der Gruppierung.
+const monthKey = (date: string) => date.slice(0, 7);
 
 export default function Trainings() {
   const { user } = useAuth();
   const [trainings, setTrainings] = useState<(Training & { studioName?: string })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user || !db) return;
@@ -38,6 +43,16 @@ export default function Trainings() {
           });
         });
         setTrainings(loadedTrainings);
+
+        // Neuester Monat offen; Monate mit aktivem Training dürfen nie versteckt starten.
+        const initialOpen = new Set<string>();
+        if (loadedTrainings.length > 0) {
+          initialOpen.add(monthKey(loadedTrainings[0].date));
+        }
+        loadedTrainings.forEach(t => {
+          if (t.status === 'active') initialOpen.add(monthKey(t.date));
+        });
+        setOpenMonths(initialOpen);
       } catch (error) {
         console.error("Error fetching trainings:", error);
       } finally {
@@ -47,6 +62,33 @@ export default function Trainings() {
 
     fetchTrainings();
   }, [user]);
+
+  // Trainings sind date-desc sortiert — die Gruppenreihenfolge ergibt sich daraus.
+  const monthGroups = useMemo(() => {
+    const groups: { key: string; trainings: typeof trainings }[] = [];
+    trainings.forEach(t => {
+      const key = monthKey(t.date);
+      const last = groups[groups.length - 1];
+      if (last && last.key === key) {
+        last.trainings.push(t);
+      } else {
+        groups.push({ key, trainings: [t] });
+      }
+    });
+    return groups;
+  }, [trainings]);
+
+  const toggleMonth = (key: string) => {
+    setOpenMonths(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -77,35 +119,45 @@ export default function Trainings() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-3">
-          {trainings.map(training => (
-            <Link
-              key={training.id}
-              to={`/trainings/${training.id}`}
-              className="block bg-surface-container-lowest p-4 rounded-2xl border border-surface-container shadow-sm hover:border-primary/20 hover:shadow-sm transition-all duration-150 active:scale-[0.98] relative overflow-hidden"
+        <div className="space-y-2">
+          {monthGroups.map(group => (
+            <CollapsibleSection
+              key={group.key}
+              title={format(parseISO(`${group.key}-01`), 'MMMM yyyy', { locale: de })}
+              count={group.trainings.length}
+              open={openMonths.has(group.key)}
+              onToggle={() => toggleMonth(group.key)}
             >
-              {training.status === 'active' && (
-                <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-              )}
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-on-surface text-base mb-1">
-                    {format(parseISO(training.date), 'EEEE, dd. MMM yyyy', { locale: de })}
+              {group.trainings.map(training => (
+                <Link
+                  key={training.id}
+                  to={`/trainings/${training.id}`}
+                  className="block bg-surface-container-lowest p-4 rounded-2xl border border-surface-container shadow-sm hover:border-primary/20 hover:shadow-sm transition-all duration-150 active:scale-[0.98] relative overflow-hidden"
+                >
+                  {training.status === 'active' && (
+                    <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                  )}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-on-surface text-base mb-1">
+                        {format(parseISO(training.date), 'EEEE, dd. MMM yyyy', { locale: de })}
+                      </div>
+                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-on-surface-variant font-medium">
+                        <span className="flex items-center">
+                          <MapPin className="w-3.5 h-3.5 mr-1" />
+                          {training.studioName}
+                        </span>
+                        {training.status === 'active' && (
+                          <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-md font-semibold">Aktiv</span>
+                        )}
+                        {training.rating && <TrainingRatingBadge value={training.rating} />}
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-outline" />
                   </div>
-                  <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-on-surface-variant font-medium">
-                    <span className="flex items-center">
-                      <MapPin className="w-3.5 h-3.5 mr-1" />
-                      {training.studioName}
-                    </span>
-                    {training.status === 'active' && (
-                      <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-md font-semibold">Aktiv</span>
-                    )}
-                    {training.rating && <TrainingRatingBadge value={training.rating} />}
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-outline" />
-              </div>
-            </Link>
+                </Link>
+              ))}
+            </CollapsibleSection>
           ))}
         </div>
       )}
