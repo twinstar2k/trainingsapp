@@ -4,6 +4,8 @@ import { db } from '../lib/firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { Exercise, ExerciseType } from '../types';
 import { Search, Activity, Plus, X, Pencil } from 'lucide-react';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
+import { groupByMuscleGroup } from '../utils/groupExercises';
 
 const TYPE_OPTIONS: { value: ExerciseType; label: string }[] = [
   { value: 'weighted', label: 'Gewicht' },
@@ -30,6 +32,7 @@ export default function Exercises() {
   const [catalog, setCatalog] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   const [showForm, setShowForm] = useState(false);
   // null = neue Übung anlegen, sonst ID der Übung, die im Formular bearbeitet wird.
@@ -69,6 +72,24 @@ export default function Exercises() {
     ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ex.muscleGroup.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const groups = groupByMuscleGroup(filteredCatalog);
+
+  // Bei aktiver Suche sind alle Treffer-Gruppen offen; Suche leeren stellt den
+  // manuellen Auf/Zu-Stand wieder her.
+  const isSearching = searchQuery.trim() !== '';
+
+  const toggleGroup = (group: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
+  };
 
   const resetForm = () => {
     setEditingId(null);
@@ -333,48 +354,59 @@ export default function Exercises() {
           <p className="text-on-surface-variant text-sm">Gehe ins Profil und initialisiere den Katalog.</p>
         </div>
       ) : (
-        <div className="bg-surface-container-lowest rounded-2xl border border-surface-container overflow-hidden shadow-sm">
-          <ul className="divide-y divide-surface-container">
-            {filteredCatalog.map(ex => (
-              <li key={ex.id} className="p-4 hover:bg-surface-container-low transition-colors duration-150 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-bold text-on-surface">{ex.name}</div>
-                  <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md">
-                      {ex.muscleGroup}
-                    </span>
-                    {ex.contextDependent && (
-                      <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
-                        Studio-gebunden
-                      </span>
-                    )}
-                    {ex.repsProgression && (
-                      <span
-                        title="Last am Limit → KI steigert nur Wiederholungen, nie das Gewicht"
-                        className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
-                      >
-                        Reps-Progression
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {isAdmin && (
-                  <button
-                    onClick={() => startEdit(ex)}
-                    title="Übung bearbeiten"
-                    className="shrink-0 mt-0.5 p-2 -mr-2 text-outline hover:text-primary transition-colors"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                )}
-              </li>
-            ))}
-            {filteredCatalog.length === 0 && (
-              <li className="p-8 text-center text-on-surface-variant text-sm">
-                Keine Übung für „{searchQuery}" gefunden.
-              </li>
-            )}
-          </ul>
+        <div className="space-y-2">
+          {groups.map(group => (
+            <CollapsibleSection
+              key={group.muscleGroup}
+              title={group.muscleGroup}
+              count={group.exercises.length}
+              open={isSearching || openGroups.has(group.muscleGroup)}
+              onToggle={() => toggleGroup(group.muscleGroup)}
+            >
+              <div className="bg-surface-container-lowest rounded-2xl border border-surface-container overflow-hidden shadow-sm">
+                <ul className="divide-y divide-surface-container">
+                  {group.exercises.map(ex => (
+                    <li key={ex.id} className="p-4 hover:bg-surface-container-low transition-colors duration-150 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-bold text-on-surface">{ex.name}</div>
+                        {(ex.contextDependent || ex.repsProgression) && (
+                          <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
+                            {ex.contextDependent && (
+                              <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
+                                Studio-gebunden
+                              </span>
+                            )}
+                            {ex.repsProgression && (
+                              <span
+                                title="Last am Limit → KI steigert nur Wiederholungen, nie das Gewicht"
+                                className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
+                              >
+                                Reps-Progression
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {isAdmin && (
+                        <button
+                          onClick={() => startEdit(ex)}
+                          title="Übung bearbeiten"
+                          className="shrink-0 mt-0.5 p-2 -mr-2 text-outline hover:text-primary transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CollapsibleSection>
+          ))}
+          {groups.length === 0 && (
+            <div className="bg-surface-container-lowest p-8 rounded-2xl border border-surface-container text-center text-on-surface-variant text-sm shadow-sm">
+              Keine Übung für „{searchQuery}" gefunden.
+            </div>
+          )}
         </div>
       )}
     </div>

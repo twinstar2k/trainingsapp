@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Plus, Search, X } from 'lucide-react';
 import type { Exercise } from '../../types';
+import { CollapsibleSection } from '../ui/CollapsibleSection';
+import { groupByMuscleGroup } from '../../utils/groupExercises';
 
 interface ExerciseCatalogModalProps {
   catalog: Exercise[];
@@ -12,11 +14,30 @@ interface ExerciseCatalogModalProps {
 // Der Suchbegriff lebt im Modal — beim Schließen (Unmount) ist er automatisch zurückgesetzt.
 export function ExerciseCatalogModal({ catalog, onSelect, onClose }: ExerciseCatalogModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   const filteredCatalog = catalog.filter(ex =>
     ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ex.muscleGroup.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const groups = groupByMuscleGroup(filteredCatalog);
+
+  // Bei aktiver Suche sind alle Treffer-Gruppen offen; Suche leeren stellt den
+  // manuellen Auf/Zu-Stand wieder her.
+  const isSearching = searchQuery.trim() !== '';
+
+  const toggleGroup = (group: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -42,29 +63,36 @@ export function ExerciseCatalogModal({ catalog, onSelect, onClose }: ExerciseCat
 
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-2">
-          {filteredCatalog.map(ex => (
-            <button
-              key={ex.id}
-              onClick={() => onSelect(ex.id)}
-              className="w-full text-left p-4 bg-surface-container-lowest border border-surface-container rounded-2xl hover:border-primary/20 hover:shadow-sm transition-all duration-150 active:scale-[0.98] flex justify-between items-center group"
+          {groups.map(group => (
+            <CollapsibleSection
+              key={group.muscleGroup}
+              title={group.muscleGroup}
+              count={group.exercises.length}
+              open={isSearching || openGroups.has(group.muscleGroup)}
+              onToggle={() => toggleGroup(group.muscleGroup)}
             >
-              <div>
-                <div className="font-bold text-on-surface">{ex.name}</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-md">
-                    {ex.muscleGroup}
-                  </span>
-                  {ex.contextDependent && (
-                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
-                      Studio-gebunden
-                    </span>
-                  )}
-                </div>
-              </div>
-              <Plus className="w-5 h-5 text-outline group-hover:text-primary transition-colors" />
-            </button>
+              {group.exercises.map(ex => (
+                <button
+                  key={ex.id}
+                  onClick={() => onSelect(ex.id)}
+                  className="w-full text-left p-4 bg-surface-container-lowest border border-surface-container rounded-2xl hover:border-primary/20 hover:shadow-sm transition-all duration-150 active:scale-[0.98] flex justify-between items-center group"
+                >
+                  <div>
+                    <div className="font-bold text-on-surface">{ex.name}</div>
+                    {ex.contextDependent && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100 text-[10px] font-bold uppercase tracking-wider">
+                          Studio-gebunden
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <Plus className="w-5 h-5 text-outline group-hover:text-primary transition-colors" />
+                </button>
+              ))}
+            </CollapsibleSection>
           ))}
-          {filteredCatalog.length === 0 && (
+          {groups.length === 0 && (
             <div className="text-center py-12 text-on-surface-variant">Keine Übung gefunden.</div>
           )}
         </div>
