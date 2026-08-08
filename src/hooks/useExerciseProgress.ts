@@ -6,6 +6,7 @@ import {
   getDocs, Query, DocumentData
 } from 'firebase/firestore';
 import { collectExerciseSessions, MAX_TRAININGS_SCANNED } from '../../shared/session-scan';
+import { resolveStudioFilter } from '../../shared/studio-filter';
 import {
   bestSessionOneRM,
   sessionMaxHold,
@@ -37,10 +38,16 @@ export interface SessionProgress {
   allSets: Array<{ reps?: number; weight?: number; duration?: number; distance?: number; holdSeconds?: number }>;
 }
 
+/**
+ * Fortschrittsdaten einer Übung. `enabled: false` überspringt das Laden — nötig, solange bei
+ * einer studiogebundenen Übung das Studio noch nicht feststeht (sonst würde ungefiltert über
+ * alle Studios geladen und der Verlauf mischte die Studios).
+ */
 export function useExerciseProgress(
   exerciseId: string,
   contextDependent: boolean,
-  currentStudioId: string
+  currentStudioId: string,
+  enabled: boolean = true
 ) {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<SessionProgress[]>([]);
@@ -48,20 +55,26 @@ export function useExerciseProgress(
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || !db || !exerciseId) return;
+    if (!user || !db || !exerciseId || !enabled) return;
+
+    // Gegen verspätete Antworten: Wechselt Übung oder Studio, während eine Query noch läuft,
+    // darf deren Ergebnis den neueren Stand nicht überschreiben (Long-Polling ⇒ Reihenfolge
+    // der Antworten ist nicht garantiert).
+    let cancelled = false;
 
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
+        const { filterStudioId } = resolveStudioFilter(contextDependent, currentStudioId);
         const trainingsRef = collection(db, 'users', user.uid, 'trainings');
         let trainingsQuery: Query<DocumentData>;
 
-        if (contextDependent && currentStudioId) {
+        if (filterStudioId) {
           trainingsQuery = query(
             trainingsRef,
             where('status', '==', 'completed'),
-            where('studioId', '==', currentStudioId),
+            where('studioId', '==', filterStudioId),
             orderBy('date', 'desc'),
             limit(MAX_TRAININGS_SCANNED)
           );
@@ -154,17 +167,18 @@ export function useExerciseProgress(
 
         // Sort ascending by date for chart display
         results.sort((a, b) => a.date.localeCompare(b.date));
-        setSessions(results);
+        if (!cancelled) setSessions(results);
       } catch (err) {
         console.error('useExerciseProgress error:', err);
-        setError('Daten konnten nicht geladen werden.');
+        if (!cancelled) setError('Daten konnten nicht geladen werden.');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     load();
-  }, [user, exerciseId, contextDependent, currentStudioId]);
+    return () => { cancelled = true; };
+  }, [user, exerciseId, contextDependent, currentStudioId, enabled]);
 
   return { sessions, loading, error };
 }

@@ -51,9 +51,8 @@ Einfachster Indikator: Das schwerste verwendete Gewicht in einer Session, unabh�
    **When** ich eine Übung antippe
    **Then** öffnet sich die Übungsdetailseite (`/exercises/:id`)
 
-2. **Given** die Übung hat `contextDependent = true`
-   **When** ich die Detailseite öffne
-   **Then** sehe ich einen Studio-Filter (Standard: letztes genutztes Studio dieser Übung)
+2. ~~**Given** die Übung hat `contextDependent = true` **When** ich die Detailseite öffne **Then** sehe ich einen Studio-Filter (Standard: letztes genutztes Studio dieser Übung)~~
+   → **Überholt durch ADR-03 / Offene Frage 4:** kein Studio-Filter. Es gilt das Studio des Trainings, aus dem die Seite geöffnet wurde; der Studioname steht in der Kopfzeile. Ein Filter wird erst sinnvoll, wenn der Verlauf ohne Trainingskontext erreichbar ist (→ `docs/BACKLOG.md`).
 
 3. **Given** die Übung hat `contextDependent = false`
    **When** ich die Detailseite öffne
@@ -188,6 +187,12 @@ Einfachster Indikator: Das schwerste verwendete Gewicht in einer Session, unabh�
 
 2. ~~**Zeitraum-Filter:** Sollen alle Sessions angezeigt werden, oder nur die letzten N?~~
    → **Entschieden: letzte 20 Sessions, kein Zeitraum-Filter im MVP**
+   → **Bestätigt 2026-08-08** nach Prüfung am realen Datenbestand: Das 20er-Limit greift bei
+   keiner der 46 Übungs-/Studio-Kombinationen (häufigste Übung: 15 Sessions über 119 Tage);
+   20 Punkte decken bei ~8 Tagen zwischen zwei Einheiten derselben Übung rund 5–6 Monate ab.
+   Eine Erhöhung wäre heute wirkungslos. Neu bewerten, sobald eine Übung die Grenze erreicht —
+   dann auch die Punktdarstellung anpassen (bei 60 Punkten auf Handybreite überlappen die
+   Marker). Die Konstante liegt als `MAX_SESSIONS` in `shared/session-scan.ts`.
 
 3. ~~**Navigationsweg zu Übungsdetail:** Nur aus der Übungsliste, oder auch aus dem Training heraus?~~
    → **Entschieden: Übungsname im aktiven Training ist antippbar** → öffnet Detailseite mit Verlauf, damit der User das Gewicht vor Beginn der Übung nach aktuellem Leistungsstand einstellen kann. Navigation zurück ins Training muss einfach sein (Back-Button).

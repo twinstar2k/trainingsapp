@@ -9,6 +9,7 @@ import { buildTrainingState, type ExerciseInput, type PastSession } from './lib/
 import { applyGuardrails, clampPayload } from './lib/guardrails';
 import { computeExercisePlan, describePlan } from '../../shared/policy';
 import { collectExerciseSessions, MAX_TRAININGS_SCANNED } from '../../shared/session-scan';
+import { resolveStudioFilter } from '../../shared/studio-filter';
 import { getRecommendationFromLlm } from './llm/provider';
 
 admin.initializeApp();
@@ -90,7 +91,10 @@ export const getTrainingRecommendation = onCall(
       const exDoc = await db.doc(`exercises/${exId}`).get();
       if (!exDoc.exists) continue; // erfundene/unbekannte Übungen ignorieren
       const ex = exDoc.data() as { name: string; type: ExerciseInput['type']; muscleGroup: string; contextDependent: boolean; repsProgression?: boolean };
-      const sessions = await fetchSessions(uid, exId, ex.contextDependent ? data.studioId : null);
+      // Dieselbe Regel wie in der App (shared/studio-filter.ts) — verhindert Drift zwischen
+      // dem, was der Verlauf zeigt, und dem, worauf der Coach seine Empfehlung stützt.
+      const { filterStudioId } = resolveStudioFilter(ex.contextDependent, data.studioId);
+      const sessions = await fetchSessions(uid, exId, filterStudioId);
       exerciseInputs.push({
         exerciseId: exId,
         name: ex.name,

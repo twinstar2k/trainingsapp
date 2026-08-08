@@ -6,7 +6,7 @@
   "description": "Eigenständiges Eval-Harness für die KI-Trainingsempfehlung (Stufe 1). Dependency-frei (native fetch).",
   "engines": { "node": ">=18" },
   "scripts": {
-    "test": "node policy.test.mjs && node context.test.mjs && node session-scan.test.mjs",
+    "test": "node policy.test.mjs && node context.test.mjs && node session-scan.test.mjs && node studio-filter.test.mjs",
     "eval": "node run-eval.mjs"
   }
 }
