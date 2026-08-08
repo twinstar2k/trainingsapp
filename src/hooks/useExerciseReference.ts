@@ -5,6 +5,7 @@ import {
   collection, query, where, orderBy, limit, getDocs
 } from 'firebase/firestore';
 import { ExerciseType } from '../types';
+import { collectExerciseSessions, MAX_TRAININGS_SCANNED } from '../../shared/session-scan';
 import {
   SetData,
   formatLastSessionLabel,
@@ -32,8 +33,8 @@ export function referenceSessionMetric(sets: SetData[], type: ExerciseType): num
 
 /**
  * Lädt in einem Durchlauf beides für eine Übung: das „Zuletzt"-Label der jüngsten
- * Session UND die Bestleistung (Referenzmetrik) über die letzten 20 abgeschlossenen
- * Trainings — dieselbe Datenbasis wie useExerciseProgress/„Bestes je".
+ * Session UND die Bestleistung (Referenzmetrik) über die letzten 20 Einheiten DIESER
+ * Übung — dieselbe Datenbasis wie useExerciseProgress/„Bestes je".
  * `enabled: false` überspringt das Laden (z. B. in abgeschlossenen Trainings).
  */
 export function useExerciseReference(
@@ -61,7 +62,7 @@ export function useExerciseReference(
         const constraints = [
           where('status', '==', 'completed'),
           orderBy('date', 'desc'),
-          limit(20),
+          limit(MAX_TRAININGS_SCANNED),
         ];
         if (contextDependent && currentStudioId) {
           constraints.splice(1, 0, where('studioId', '==', currentStudioId));
@@ -69,8 +70,11 @@ export function useExerciseReference(
 
         const trainingsSnap = await getDocs(query(trainingsRef, ...constraints));
 
-        const sessions = await Promise.all(
-          trainingsSnap.docs.map(async (trainingDoc) => {
+        // Rückwärts durch die Trainings, bis 20 Sessions DIESER Übung beisammen sind
+        // (nicht: die ersten 20 Trainings durchsuchen) — siehe shared/session-scan.ts.
+        const found = await collectExerciseSessions(
+          trainingsSnap.docs,
+          async (trainingDoc): Promise<{ date: string; sets: SetData[] } | null> => {
             const exercisesRef = collection(
               db, 'users', user.uid, 'trainings', trainingDoc.id, 'exercises'
             );
@@ -92,11 +96,7 @@ export function useExerciseReference(
               holdSeconds: d.data().holdSeconds as number | undefined,
             }));
             return { date: trainingDoc.data().date as string, sets };
-          })
-        );
-
-        const found = sessions.filter(
-          (s): s is { date: string; sets: SetData[] } => s !== null
+          }
         );
 
         // Zuletzt-Label aus der jüngsten Session (Query-Reihenfolge = date desc)

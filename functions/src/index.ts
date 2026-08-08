@@ -8,6 +8,7 @@ import type { GoalKey, Recommendation, RecommendationPayload, RirLevel } from '.
 import { buildTrainingState, type ExerciseInput, type PastSession } from './lib/context';
 import { applyGuardrails, clampPayload } from './lib/guardrails';
 import { computeExercisePlan, describePlan } from '../../shared/policy';
+import { collectExerciseSessions, MAX_TRAININGS_SCANNED } from '../../shared/session-scan';
 import { getRecommendationFromLlm } from './llm/provider';
 
 admin.initializeApp();
@@ -171,7 +172,9 @@ export const getTrainingRecommendation = onCall(
 
 /**
  * Zweistufige Query (ADR-01): completed Trainings → exercises(exerciseId) → sets.
- * Bei contextDependent nur das aktuelle Studio. Max. 20 Sessions.
+ * Bei contextDependent nur das aktuelle Studio. Max. 20 Sessions DIESER Übung — dafür
+ * wird so weit zurückgesucht wie nötig (shared/session-scan.ts), sonst verliert eine
+ * rotierende Übung ihre Historie und der Coach empfiehlt ohne Basis.
  */
 async function fetchSessions(
   uid: string,
@@ -182,14 +185,13 @@ async function fetchSessions(
     .collection(`users/${uid}/trainings`)
     .where('status', '==', 'completed');
   if (studioId) q = q.where('studioId', '==', studioId);
-  q = q.orderBy('date', 'desc').limit(20);
+  q = q.orderBy('date', 'desc').limit(MAX_TRAININGS_SCANNED);
 
   const trainings = await q.get();
-  const sessions: PastSession[] = [];
-  for (const t of trainings.docs) {
+  return collectExerciseSessions(trainings.docs, async (t): Promise<PastSession | null> => {
     const tData = t.data() as { date: string; studioId: string };
     const exSnap = await t.ref.collection('exercises').where('exerciseId', '==', exerciseId).limit(1).get();
-    if (exSnap.empty) continue;
+    if (exSnap.empty) return null;
     const exDoc = exSnap.docs[0];
     const rir = (exDoc.data() as { rir?: RirLevel }).rir;
     const setsSnap = await exDoc.ref.collection('sets').get();
@@ -197,7 +199,7 @@ async function fetchSessions(
       const d = s.data() as { reps?: number; weight?: number };
       return { reps: d.reps, weight: d.weight };
     });
-    if (sets.length) sessions.push({ date: tData.date, studioId: tData.studioId, sets, rir });
-  }
-  return sessions;
+    if (!sets.length) return null;
+    return { date: tData.date, studioId: tData.studioId, sets, rir };
+  });
 }
