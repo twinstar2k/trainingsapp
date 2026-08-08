@@ -135,6 +135,7 @@ Dann: [Aufgabe beschreiben]
 - Jede Komponente hat Loading- und Error-State
 - Keine console.log im finalen Code
 - Mobile-first Responsive Design
+- **Entscheidungslogik als reine Funktion, nicht im Hook:** Sobald ein Hook mehr tut als Daten zu holen und zu setzen — filtern, sortieren, rechnen, „laden oder nicht?" entscheiden — gehört dieser Teil als reine Funktion nach `shared/` (wenn auch die Function sie braucht) oder `src/utils/`, mit Test in `eval/*.test.mjs`. Firestore-Aufrufe bleiben im Hook. Grund: Beide Bugs vom 2026-08-08 steckten in Hook-Logik, die man ohne laufende App nicht prüfen konnte; als reine Funktion (`shared/session-scan.ts`, `shared/studio-filter.ts`) sind sie in Minuten testbar. Beim Bauen kostet das kaum etwas, nachträglich extrahieren ist teuer.
 
 ## Tailwind-Besonderheiten
 
