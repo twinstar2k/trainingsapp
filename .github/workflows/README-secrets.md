@@ -17,30 +17,33 @@ Was in den GitHub-Repository-Einstellungen hinterlegt sein muss, damit
 Damit kann jeder, der ihn hat, auf das Firebase-Projekt deployen — dieser Wert gehört nirgendwo
 ins Repo und nicht in Log-Ausgaben.
 
-**Bequemster Weg, ihn zu erzeugen** (legt Service Account, Rechte und GitHub-Secret in einem
-Rutsch an):
+So wurde er am 2026-08-08 eingerichtet (manueller Weg, siehe Warnung darunter):
 
-```bash
-firebase init hosting:github
-```
+1. **Dienstkonto anlegen** —
+   <https://console.cloud.google.com/iam-admin/serviceaccounts/create?project=mvp-app-claude>
+   - Name: `github-deploy-hosting`
+   - Rollen: **Firebase Hosting-Administrator** (`roles/firebasehosting.admin`) und
+     **Firebase-Betrachter** (`roles/firebase.viewer`)
+2. **Schlüssel erzeugen** — Dienstkonto öffnen → Reiter *Schlüssel* → *Schlüssel hinzufügen* →
+   *Neuen Schlüssel erstellen* → **JSON**
+3. **Als Secret setzen**, ohne dass der Schlüssel in einer Kommandozeile oder Log-Ausgabe landet:
+   ```bash
+   gh secret set FIREBASE_SERVICE_ACCOUNT -R twinstar2k/trainingsapp < ~/Downloads/<datei>.json
+   ```
+4. **Heruntergeladene Datei löschen** — ein Service-Account-Key gehört nicht in den
+   Download-Ordner.
 
-Der Befehl fragt nach dem GitHub-Repository (`twinstar2k/trainingsapp`), erzeugt den Service
-Account und legt das Secret automatisch an — allerdings unter dem Namen
-`FIREBASE_SERVICE_ACCOUNT_MVP_APP_CLAUDE`. Zwei Möglichkeiten:
+> **`firebase init hosting:github` funktioniert hier nicht.** Der Befehl soll Service Account,
+> Rechte und Secret automatisch anlegen, scheiterte in diesem Projekt aber reproduzierbar mit
+> `HTTP Error: 404, Service account … does not exist` — er versucht einen Schlüssel für ein
+> Konto zu erzeugen, dessen Anlegen zuvor still fehlschlug (vermutlich fehlende IAM-Rechte des
+> angemeldeten Kontos). Zusätzlich hätte er eigene Workflow-Dateien angelegt, darunter eine
+> PR-Variante, die bei fremden Pull Requests liefe — bei einem öffentlichen Repo unerwünscht.
+> Der manuelle Weg oben ist auch sparsamer: Firebase braucht dabei gar keinen GitHub-Zugriff.
 
-- das Secret in den Repo-Einstellungen auf `FIREBASE_SERVICE_ACCOUNT` umbenennen (neu anlegen,
-  altes löschen), **oder**
-- in `deploy-hosting.yml` den Namen anpassen.
-
-Außerdem legt der Befehl eigene Workflow-Dateien an (`firebase-hosting-merge.yml`,
-`firebase-hosting-pull-request.yml`). **Beide löschen** — sie überschneiden sich mit
-`deploy-hosting.yml`, und die PR-Variante würde bei fremden Pull Requests laufen, was wir
-bewusst nicht wollen.
-
-**Manuell** geht es auch: In der Google Cloud Console unter *IAM & Verwaltung →
-Dienstkonten* ein Konto anlegen, ihm die Rolle **Firebase Hosting Admin**
-(`roles/firebasehosting.admin`) sowie **Firebase-Leser** (`roles/firebase.viewer`) geben, einen
-JSON-Schlüssel erzeugen und dessen kompletten Inhalt als Secret einfügen.
+**Zum Secret-Namen:** GitHub-Secrets lassen sich nach dem Anlegen nicht mehr auslesen und
+deshalb auch nicht umbenennen. Wer ein Secret unter anderem Namen hat, passt entweder
+`deploy-hosting.yml` an oder legt das Secret aus der Original-Schlüsseldatei neu an.
 
 ## 2. Variables — nicht geheim
 
