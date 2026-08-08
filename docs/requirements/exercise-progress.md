@@ -187,6 +187,12 @@ Einfachster Indikator: Das schwerste verwendete Gewicht in einer Session, unabh�
 
 2. ~~**Zeitraum-Filter:** Sollen alle Sessions angezeigt werden, oder nur die letzten N?~~
    → **Entschieden: letzte 20 Sessions, kein Zeitraum-Filter im MVP**
+   → **Bestätigt 2026-08-08** nach Prüfung am realen Datenbestand: Das 20er-Limit greift bei
+   keiner der 46 Übungs-/Studio-Kombinationen (häufigste Übung: 15 Sessions über 119 Tage);
+   20 Punkte decken bei ~8 Tagen zwischen zwei Einheiten derselben Übung rund 5–6 Monate ab.
+   Eine Erhöhung wäre heute wirkungslos. Neu bewerten, sobald eine Übung die Grenze erreicht —
+   dann auch die Punktdarstellung anpassen (bei 60 Punkten auf Handybreite überlappen die
+   Marker). Die Konstante liegt als `MAX_SESSIONS` in `shared/session-scan.ts`.
 
 3. ~~**Navigationsweg zu Übungsdetail:** Nur aus der Übungsliste, oder auch aus dem Training heraus?~~
    → **Entschieden: Übungsname im aktiven Training ist antippbar** → öffnet Detailseite mit Verlauf, damit der User das Gewicht vor Beginn der Übung nach aktuellem Leistungsstand einstellen kann. Navigation zurück ins Training muss einfach sein (Back-Button).
