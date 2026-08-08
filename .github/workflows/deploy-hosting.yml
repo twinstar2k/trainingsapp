@@ -114,9 +114,12 @@ jobs:
       - name: Deploy nach Firebase Hosting
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
-        # Auf Major-Version gepinnt (lokal 15.x), damit ein CLI-Sprung den Deploy nicht
-        # unangekündigt verändert. Nur Hosting — Functions werden weiterhin manuell deployt.
-        run: npx --yes firebase-tools@15 deploy --only hosting --project mvp-app-claude --non-interactive
+        # EXAKT gepinnt: Mit `@15` zog jeder Lauf die jeweils neueste 15.x — zwei Läufe desselben
+        # Commits konnten also unterschiedliche CLI-Versionen verwenden. Zum Aktualisieren die
+        # Version hier hochsetzen (`npm view firebase-tools version` zeigt die neueste) — dann
+        # ist der Wechsel ein eigener, nachvollziehbarer Commit statt einer stillen Änderung.
+        # Nur Hosting — Functions werden weiterhin manuell deployt.
+        run: npx --yes firebase-tools@15.26.0 deploy --only hosting --project mvp-app-claude --non-interactive
 
       - name: Zugangsdatei entfernen
         if: always()
