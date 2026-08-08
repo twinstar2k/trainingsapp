@@ -17,7 +17,7 @@ if (!existsSync(URL_)) {
   console.error('✗ Kompilierter Studio-Filter fehlt. Bitte zuerst bauen:  cd ../functions && npx tsc');
   process.exit(2);
 }
-const { resolveStudioFilter } = await import(URL_);
+const { resolveStudioFilter, isStudioLabelRelevant } = await import(URL_);
 
 let pass = 0, fail = 0;
 function check(label, cond, got) {
@@ -60,6 +60,19 @@ function check(label, cond, got) {
       typeof r === 'object' && typeof r.ready === 'boolean'
       && (r.filterStudioId === null || typeof r.filterStudioId === 'string'), r);
   }
+}
+
+// ── E: Studio-Label nur zeigen, wenn die Zuordnung überhaupt relevant ist ────────
+// Der Normalfall ist EIN Studio — dann ist die Angabe Rauschen.
+{
+  check('E ein Studio: kein Label', isStudioLabelRelevant(true, 1, 'David Lloyd') === false);
+  check('E2 kein Studio angelegt: kein Label', isStudioLabelRelevant(true, 0, '') === false);
+  check('E3 mehrere Studios + studiogebunden: Label',
+    isStudioLabelRelevant(true, 2, 'David Lloyd') === true);
+  check('E4 globale Übung trotz mehrerer Studios: kein Label',
+    isStudioLabelRelevant(false, 3, 'David Lloyd') === false);
+  check('E5 Name noch nicht geladen: kein Label (kein Flackern)',
+    isStudioLabelRelevant(true, 2, '') === false);
 }
 
 console.log(`\nstudio-filter: ${pass} pass, ${fail} fail`);

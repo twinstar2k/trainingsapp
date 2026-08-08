@@ -33,3 +33,23 @@ export function resolveStudioFilter(
   if (!studioId) return { filterStudioId: null, ready: false };
   return { filterStudioId: studioId, ready: true };
 }
+
+/**
+ * Ob der Studioname im Verlauf angezeigt werden soll.
+ *
+ * Der Normalfall ist **ein** Studio — dann ist die Angabe reines Rauschen, weil es nichts zu
+ * unterscheiden gibt. Erst ab zwei angelegten Studios erklärt sie, warum der Verlauf genau
+ * diese Einheiten zeigt (und im neuen Studio zunächst leer ist).
+ *
+ * Bewusst an der Zahl der **angelegten Studios** festgemacht, nicht daran, ob diese Übung
+ * schon in mehreren Studios vorkommt: Letzteres wüsste man erst nach einer ungefilterten Suche
+ * über die gesamte Historie — und das Label fehlte ausgerechnet beim ersten Training im neuen
+ * Studio, wo der leere Verlauf am meisten Erklärung braucht.
+ */
+export function isStudioLabelRelevant(
+  contextDependent: boolean,
+  studioCount: number,
+  studioName: string,
+): boolean {
+  return contextDependent && studioCount > 1 && studioName !== '';
+}

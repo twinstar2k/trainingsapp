@@ -5,7 +5,7 @@ import { db } from '../lib/firebase';
 import { doc, getDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { Exercise } from '../types';
 import { useExerciseProgress, SessionProgress } from '../hooks/useExerciseProgress';
-import { resolveStudioFilter } from '../../shared/studio-filter';
+import { resolveStudioFilter, isStudioLabelRelevant } from '../../shared/studio-filter';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import {
@@ -77,6 +77,7 @@ export default function ExerciseDetail() {
   const [fallbackStudioId, setFallbackStudioId] = useState('');
   const [studioLookupDone, setStudioLookupDone] = useState(false);
   const [studioName, setStudioName] = useState('');
+  const [studioCount, setStudioCount] = useState(0);
   const [exerciseLoading, setExerciseLoading] = useState(true);
   const [activeMetric, setActiveMetric] = useState<Metric>('maxWeight');
 
@@ -137,18 +138,23 @@ export default function ExerciseDetail() {
   // ungefiltert über alle Studios geladen und der Verlauf mischte die Studios.
   const { ready: studioReady } = resolveStudioFilter(contextDependent, currentStudioId);
 
-  // Studioname für die Kopfzeile, damit sichtbar ist, welcher Verlauf gezeigt wird.
+  // Studioname UND Anzahl der Studios in einem Zug (die Collection ist winzig): Der Name kommt
+  // in die Kopfzeile, die Anzahl entscheidet, ob er überhaupt relevant ist (ein Studio = kein Label).
   useEffect(() => {
     if (!user || !db || !contextDependent || !currentStudioId) {
       setStudioName('');
+      setStudioCount(0);
       return;
     }
     let cancelled = false;
-    getDoc(doc(db, 'users', user.uid, 'studios', currentStudioId))
+    getDocs(collection(db, 'users', user.uid, 'studios'))
       .then(snap => {
-        if (!cancelled && snap.exists()) setStudioName(snap.data().name as string);
+        if (cancelled) return;
+        setStudioCount(snap.size);
+        const mine = snap.docs.find(d => d.id === currentStudioId);
+        setStudioName(mine ? (mine.data().name as string) : '');
       })
-      .catch(err => console.error('ExerciseDetail: load studio name error', err));
+      .catch(err => console.error('ExerciseDetail: load studios error', err));
     return () => { cancelled = true; };
   }, [user, contextDependent, currentStudioId]);
 
@@ -234,11 +240,12 @@ export default function ExerciseDetail() {
           <h2 className="text-xl font-headline font-extrabold tracking-tight text-on-surface leading-tight truncate">
             {exercise.name}
           </h2>
-          {/* Bei studiogebundenen Übungen den Studionamen nennen — der Verlauf zeigt
-              ausschließlich dieses Studio, das muss sichtbar sein. */}
+          {/* Studioname nur, wenn es mehr als ein Studio gibt — sonst gibt es nichts zu
+              unterscheiden und die Angabe wäre Rauschen (siehe shared/studio-filter.ts). */}
           <p className="text-xs text-on-surface-variant">
             {exercise.muscleGroup}
-            {exercise.contextDependent && (studioName ? ` · ${studioName}` : ' · studiobezogen')}
+            {isStudioLabelRelevant(exercise.contextDependent, studioCount, studioName)
+              && ` · ${studioName}`}
           </p>
         </div>
       </div>
