@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import { Sparkles } from 'lucide-react';
+import { Gauge } from 'lucide-react';
 import type { TrainingRating } from '../../types';
 import { averageRating } from '../../lib/rating';
 import { TrainingRatingBadge } from './TrainingRating';
@@ -31,7 +31,9 @@ export function TrainingQualityCard({ entries }: TrainingQualityCardProps) {
     <div className="bg-surface-container-lowest p-4 rounded-2xl border border-surface-container shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center text-outline">
-          <Sparkles className="w-4 h-4 mr-2" />
+          {/* Gauge, NICHT Sparkles: Sparkles ist der KI-Funktion vorbehalten (Coach-Button,
+              KI-Dialog) — hier würde es die eigene Sterne-Bewertung wie KI aussehen lassen. */}
+          <Gauge className="w-4 h-4 mr-2" />
           <span className="text-xs font-medium uppercase tracking-wider">Trainingsqualität</span>
         </div>
         {avg != null && (
