@@ -32,6 +32,7 @@ trainingsapp/
 │   ├── PROJECT-CONTEXT.md             ← Fachlicher + technischer Kontext
 │   ├── BACKLOG.md                     ← Ideen / „Nice to have" (inkl. Test-Feedback)
 │   ├── DESIGN.md                      ← Design-System (Google Stitch Tokens)
+│   ├── prozess-blueprint.md           ← Arbeitsablauf + CI/CD + Absicherung, providerneutral (auf andere Projekte übertragbar)
 │   ├── trainingsapp_konzept_v1.md     ← Historisches Fachkonzept (V1, nicht mehr gepflegt)
 │   ├── agents/                        ← Agenten-Prompts für rollenbasierte Entwicklung
 │   ├── requirements/                  ← User Stories und Akzeptanzkriterien
