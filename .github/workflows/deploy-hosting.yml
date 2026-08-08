@@ -23,6 +23,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Volle Historie: Der Drift-Check unten vergleicht gegen den Stand vor dem Push.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -118,3 +121,53 @@ jobs:
       - name: Zugangsdatei entfernen
         if: always()
         run: rm -f "$RUNNER_TEMP/firebase-sa.json"
+
+      # Dieser Workflow deployt NUR Hosting. shared/ wird aber auch von der Cloud Function
+      # genutzt, und Rules/Indizes hängen ebenfalls am Code. Ohne Hinweis läuft die App neu,
+      # der Coach aber weiter mit altem Code — stille Drift. Bewusst nur eine Warnung, kein
+      # Fehler: Die App-Änderung soll ja live gehen, sie ist nicht falsch.
+      - name: Auf ausstehende manuelle Deploys prüfen
+        if: github.event_name == 'push'
+        env:
+          VORHER: ${{ github.event.before }}
+        run: |
+          if [ -z "$VORHER" ] || [ "$VORHER" = "0000000000000000000000000000000000000000" ]; then
+            echo "Kein Vorgängerstand bekannt — Prüfung übersprungen."
+            exit 0
+          fi
+
+          offen=""
+          pruefe() { # $1 = Pfade, $2 = Bezeichnung, $3 = Befehl
+            if [ -n "$(git diff --name-only "$VORHER" "$GITHUB_SHA" -- $1)" ]; then
+              offen="ja"
+              echo "::warning::$2 geändert — bitte manuell deployen: $3"
+              {
+                echo "### ⚠️ $2 geändert"
+                echo ""
+                echo '```bash'
+                echo "$3"
+                echo '```'
+                echo ""
+                echo "Geänderte Dateien:"
+                git diff --name-only "$VORHER" "$GITHUB_SHA" -- $1 | sed 's/^/- `/;s/$/`/'
+                echo ""
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
+          pruefe "shared/ functions/" \
+                 "Cloud Functions (shared/ oder functions/)" \
+                 "firebase deploy --only functions"
+          pruefe "firestore.rules" \
+                 "Firestore Rules" \
+                 "firebase deploy --only firestore:rules"
+          pruefe "firestore.indexes.json" \
+                 "Firestore Indizes" \
+                 "firebase deploy --only firestore:indexes"
+
+          if [ -z "$offen" ]; then
+            echo "Keine manuellen Deploys nötig — nur Hosting betroffen."
+          else
+            echo ""
+            echo "Hosting ist deployt. Die oben genannten Teile NICHT — die laufen noch mit dem alten Stand."
+          fi
