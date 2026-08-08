@@ -5,6 +5,7 @@ import {
   collection, query, where, orderBy, limit,
   getDocs, Query, DocumentData
 } from 'firebase/firestore';
+import { collectExerciseSessions, MAX_TRAININGS_SCANNED } from '../../shared/session-scan';
 import {
   bestSessionOneRM,
   sessionMaxHold,
@@ -62,22 +63,24 @@ export function useExerciseProgress(
             where('status', '==', 'completed'),
             where('studioId', '==', currentStudioId),
             orderBy('date', 'desc'),
-            limit(20)
+            limit(MAX_TRAININGS_SCANNED)
           );
         } else {
           trainingsQuery = query(
             trainingsRef,
             where('status', '==', 'completed'),
             orderBy('date', 'desc'),
-            limit(20)
+            limit(MAX_TRAININGS_SCANNED)
           );
         }
 
         const trainingsSnap = await getDocs(trainingsQuery);
-        const results: SessionProgress[] = [];
 
-        await Promise.all(
-          trainingsSnap.docs.map(async (trainingDoc) => {
+        // Rückwärts durch die Trainings, bis 20 Sessions DIESER Übung beisammen sind
+        // (nicht: die ersten 20 Trainings durchsuchen) — siehe shared/session-scan.ts.
+        const results = await collectExerciseSessions(
+          trainingsSnap.docs,
+          async (trainingDoc): Promise<SessionProgress | null> => {
             const training = trainingDoc.data();
 
             // Find the exercise in this training
@@ -88,7 +91,7 @@ export function useExerciseProgress(
               query(exercisesRef, where('exerciseId', '==', exerciseId))
             );
 
-            if (exercisesSnap.empty) return;
+            if (exercisesSnap.empty) return null;
 
             // Take first matching exercise instance
             const exerciseDoc = exercisesSnap.docs[0];
@@ -107,7 +110,7 @@ export function useExerciseProgress(
               holdSeconds: d.data().holdSeconds as number | undefined,
             }));
 
-            if (sets.length === 0) return;
+            if (sets.length === 0) return null;
 
             const maxWeight = sessionMaxWeight(sets);
             const volume = sessionVolume(sets);
@@ -129,7 +132,7 @@ export function useExerciseProgress(
               }) as { reps: number; weight: number };
             }
 
-            results.push({
+            return {
               trainingId: trainingDoc.id,
               date: training.date as string,
               studioId: training.studioId as string,
@@ -145,8 +148,8 @@ export function useExerciseProgress(
               pace,
               bestSet,
               allSets: sets,
-            });
-          })
+            };
+          }
         );
 
         // Sort ascending by date for chart display
