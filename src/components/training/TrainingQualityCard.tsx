@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { Sparkles } from 'lucide-react';
 import type { TrainingRating } from '../../types';
-import { RATING_LABELS, averageRating } from '../../lib/rating';
+import { averageRating } from '../../lib/rating';
 import { TrainingRatingBadge } from './TrainingRating';
 
 export interface QualityEntry {
@@ -67,13 +67,11 @@ export function TrainingQualityCard({ entries }: TrainingQualityCardProps) {
                 tickLine={false}
                 tick={{ fontSize: 11, fill: '#6d7a72' }}
               />
-              <Tooltip
-                cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-                formatter={(value: number) => [RATING_LABELS[value as TrainingRating], 'Bewertung']}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                labelStyle={{ color: '#3d4a42', fontSize: '12px', marginBottom: '4px' }}
-                itemStyle={{ color: '#d97706', fontWeight: 600 }}
-              />
+              {/* Bewusst KEIN Tooltip: Auf dem Touch-Gerät gibt es kein Hover — das Popup
+                  bliebe stehen und verdeckte bei 112px Kartenhöhe die Nachbarbalken. Es trüge
+                  auch nichts bei, da die Y-Achse die Skala 1–4 beschriftet und der Kartenkopf
+                  Ø + Sterne zeigt. Die Wort-Übersetzung (Schwach/Ok/Stark/Super) gehört an die
+                  Selbsteinschätzung — die steht im TrainingRatingInput. */}
               <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={28}>
                 {chartData.map((_, i) => (
                   <Cell key={i} fill={BAR_COLOR} />
