@@ -169,11 +169,22 @@ Dann: [Aufgabe beschreiben]
 
 ## Deploy
 
+**Hosting läuft automatisch:** Jeder Push auf `main` baut, lintet, testet und deployt via
+GitHub Action (`.github/workflows/deploy-hosting.yml`). Einrichtung und benötigte
+Secrets/Variables: `.github/workflows/README-secrets.md`. Der Workflow bricht ab, wenn die
+`VITE_FIREBASE_*`-Werte fehlen — sonst würde eine App ohne Login und Daten live gehen.
+
+Damit ist der Ablauf: **Feature-Branch → Commit → lokale Sichtprüfung → Merge → Push**
+(der Push deployt). Kein manueller Hosting-Deploy mehr nötig.
+
+Alles Übrige bleibt bewusst manuell — es braucht weitere IAM-Rechte bzw. kann im Fehlerfall
+die App aussperren:
+
 ```bash
-npm run build && firebase deploy --only hosting       # App deployen
-firebase deploy --only functions                      # Cloud Functions deployen (KI-Empfehlung)
-firebase deploy --only firestore:indexes              # Indizes deployen
-firebase deploy --only firestore:rules                # Rules deployen
+firebase deploy --only functions                      # Cloud Functions (KI-Empfehlung)
+firebase deploy --only firestore:indexes              # Indizes
+firebase deploy --only firestore:rules                # Rules
+npm run build && firebase deploy --only hosting       # Hosting von Hand (Notfall/Rollback)
 ```
 
 KI-Konzept/Architektur: `docs/architecture/ai-coach-engine.md` (Policy-first, Trend/Plateau),

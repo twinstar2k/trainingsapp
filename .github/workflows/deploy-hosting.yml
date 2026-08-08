@@ -1,0 +1,120 @@
+name: Deploy Hosting
+
+# BEWUSST nur `push` auf main und manueller Start — KEIN `pull_request`/`pull_request_target`:
+# Das Repo ist öffentlich. Ein Workflow, der bei fremden Pull Requests mit dem Deploy-Secret
+# läuft, wäre ein Einfallstor, um damit auf das Firebase-Projekt zu deployen.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Zwei gleichzeitige Deploys würden sich überholen — nacheinander abarbeiten, keinen abbrechen
+# (ein abgebrochener Deploy könnte einen halben Upload hinterlassen).
+concurrency:
+  group: deploy-hosting
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Bauen, prüfen, deployen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # wie functions/package.json ("engines": { "node": "22" })
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Die Offline-Tests importieren den KOMPILIERTEN shared/-Code (functions/lib/shared/*.js),
+      # deshalb müssen die Functions gebaut werden — auch wenn dieser Workflow sie nicht deployt.
+      - name: Functions kompilieren (Testgrundlage)
+        working-directory: functions
+        run: |
+          npm ci
+          npx tsc
+
+      - name: Offline-Tests
+        working-directory: eval
+        run: npm test
+
+      # Ohne diese Werte baut Vite ein Bundle, in dem firebaseConfig.apiKey undefined ist.
+      # src/lib/firebase.ts fängt das ab (app = null) — die App startet dann OHNE Firebase,
+      # also ohne Login und ohne Daten. Das wäre ein stumm kaputtes Deploy, deshalb hart prüfen.
+      - name: Pflicht-Variablen prüfen
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+        run: |
+          fehlend=0
+          for name in VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID \
+                      VITE_FIREBASE_STORAGE_BUCKET VITE_FIREBASE_MESSAGING_SENDER_ID VITE_FIREBASE_APP_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository-Variable $name fehlt — siehe .github/workflows/README-secrets.md"
+              fehlend=1
+            fi
+          done
+          [ "$fehlend" -eq 0 ] || exit 1
+
+      - name: Bauen
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          # Schalter für die KI-Empfehlung. Nicht gesetzt = aus (featureFlags.ts prüft === 'true').
+          VITE_AI_RECOMMENDATIONS: ${{ vars.VITE_AI_RECOMMENDATIONS }}
+        run: npm run build
+
+      # Beweist, dass die Konfiguration wirklich ins Bundle eingebacken wurde — der Env-Check
+      # oben prüft nur, ob die Werte im Runner ankamen, nicht ob Vite sie übernommen hat.
+      - name: Bundle gegenprüfen
+        env:
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+        run: |
+          if ! grep -qr "$VITE_FIREBASE_PROJECT_ID" dist/assets/*.js; then
+            echo "::error::Firebase-Config nicht im Bundle — Deploy abgebrochen (App wäre ohne Login/Daten gestartet)"
+            exit 1
+          fi
+          echo "Firebase-Config im Bundle bestätigt."
+          echo "KI-Empfehlung: ${{ vars.VITE_AI_RECOMMENDATIONS == 'true' && 'AN' || 'AUS' }}"
+
+      - name: Firebase-Zugang bereitstellen
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SERVICE_ACCOUNT" ]; then
+            echo "::error::Secret FIREBASE_SERVICE_ACCOUNT fehlt — siehe .github/workflows/README-secrets.md"
+            exit 1
+          fi
+          # printf statt echo: Das JSON enthält Anführungszeichen und Zeilenumbrüche.
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+
+      - name: Deploy nach Firebase Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
+        # Auf Major-Version gepinnt (lokal 15.x), damit ein CLI-Sprung den Deploy nicht
+        # unangekündigt verändert. Nur Hosting — Functions werden weiterhin manuell deployt.
+        run: npx --yes firebase-tools@15 deploy --only hosting --project mvp-app-claude --non-interactive
+
+      - name: Zugangsdatei entfernen
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-sa.json"
