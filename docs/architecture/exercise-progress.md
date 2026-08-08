@@ -249,11 +249,19 @@ src/utils/metrics.ts                      ← Epley-Berechnung, Label-Formatieru
 
 ---
 
-### ADR-03: context_dependent — nur aktuelles Studio
-**Status:** Akzeptiert (aus Requirements)
-**Kontext:** Bei Maschinen/Seilzugübungen sind Gewichte nur innerhalb desselben Studios vergleichbar.
-**Entscheidung:** Das Studio des laufenden oder zuletzt abgeschlossenen Trainings wird als Filter verwendet. Kein Studio-Switcher in der MVP-Version.
+### ADR-03: context_dependent — nur das Studio des Herkunftstrainings
+**Status:** Akzeptiert (aus Requirements), präzisiert 2026-08-08
+**Kontext:** Bei Maschinen/Seilzugübungen sind Gewichte nur innerhalb desselben Studios vergleichbar — Rollenübersetzungen und Maschineneinstellungen unterscheiden sich.
+**Entscheidung:** Als Filter gilt das Studio **des Trainings, aus dem die Detailseite geöffnet wurde** — nicht das des jüngsten Trainings. `ExerciseCard` gibt es via `navigate(..., { state: { studioId } })` mit; die Seite liest es aus `useLocation()`. Kein Studio-Switcher (bestätigt 2026-08-08).
 **Konsequenz:** User sieht nur Daten vom aktuell relevanten Studio — konsistent mit dem Kontext, in dem er gerade trainiert.
+
+**Nachtrag 2026-08-08 (Bugfix):** Die ursprüngliche Umsetzung nahm das Studio des *jüngsten* Trainings (`orderBy('date','desc'), limit(1)`) und prüfte `if (contextDependent && currentStudioId)`. Beides war falsch:
+
+1. Wer aus einem peoples-Training kam, sah David-Lloyd-Werte, sobald dort zuletzt trainiert wurde.
+2. Solange `currentStudioId` noch leer war (asynchron ermittelt), fiel die Bedingung in den else-Zweig und lud **ungefiltert über alle Studios** — der Verlauf mischte die Studios.
+3. Ohne Effect-Cleanup gewann die zuletzt eintreffende von mehreren parallelen Queries, nicht die aktuellste. Mit `experimentalForceLongPolling` (siehe CLAUDE.md) ist die Antwortreihenfolge nicht garantiert, der gemischte Stand konnte dauerhaft stehen bleiben.
+
+Die Regel liegt seither als reine Funktion in `shared/studio-filter.ts` (`resolveStudioFilter`) und kennt einen expliziten dritten Zustand **`ready: false` = noch nicht laden**. Ein ungefilterter Ersatz bei unbekanntem Studio ist damit strukturell ausgeschlossen. Dieselbe Funktion nutzt die Cloud Function (`functions/src/index.ts`), damit Verlauf und Coach dieselbe Historie sehen.
 
 ---
 

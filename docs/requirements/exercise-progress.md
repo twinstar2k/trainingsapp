@@ -51,9 +51,8 @@ Einfachster Indikator: Das schwerste verwendete Gewicht in einer Session, unabh�
    **When** ich eine Übung antippe
    **Then** öffnet sich die Übungsdetailseite (`/exercises/:id`)
 
-2. **Given** die Übung hat `contextDependent = true`
-   **When** ich die Detailseite öffne
-   **Then** sehe ich einen Studio-Filter (Standard: letztes genutztes Studio dieser Übung)
+2. ~~**Given** die Übung hat `contextDependent = true` **When** ich die Detailseite öffne **Then** sehe ich einen Studio-Filter (Standard: letztes genutztes Studio dieser Übung)~~
+   → **Überholt durch ADR-03 / Offene Frage 4:** kein Studio-Filter. Es gilt das Studio des Trainings, aus dem die Seite geöffnet wurde; der Studioname steht in der Kopfzeile. Ein Filter wird erst sinnvoll, wenn der Verlauf ohne Trainingskontext erreichbar ist (→ `docs/BACKLOG.md`).
 
 3. **Given** die Übung hat `contextDependent = false`
    **When** ich die Detailseite öffne
