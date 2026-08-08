@@ -20,7 +20,7 @@ Lies `docs/PROJECT-CONTEXT.md` für den vollständigen fachlichen und technische
 - **Datenbank:** Cloud Firestore
 - **Hosting:** Firebase Hosting
 - **Backend:** Cloud Functions (`functions/`, europe-west3, Node 22, firebase-functions v7) — Callable `getTrainingRecommendation` für die KI-Empfehlung. Sonstiger Datenzugriff weiterhin direkt via Firestore Security Rules.
-- **Geteilter Code:** `shared/` (Metriken + KI-Vertragstypen + Policy-Kern) — Single Source für App UND Functions (ADR-04).
+- **Geteilter Code:** `shared/` (Metriken + KI-Vertragstypen + Policy-Kern + Historie-Suche) — Single Source für App UND Functions (ADR-04).
 - **LLM:** EU-Gateway Requesty (`router.eu.requesty.ai`, OpenAI-kompatibel), Secret `REQUESTY_API_KEY` in Google Secret Manager. Feature-Flag `VITE_AI_RECOMMENDATIONS` (default AUS).
 
 ## Projektstruktur
@@ -79,7 +79,8 @@ trainingsapp/
 ├── shared/                            ← Single Source für App + Functions (ADR-04)
 │   ├── ai-types.ts                    ← KI-Vertragstypen (Context/Plan/Payload)
 │   ├── metrics.ts                     ← geteilte Metrik-Funktionen
-│   └── policy.ts                      ← deterministischer Coach-Kern (Code = Systematik)
+│   ├── policy.ts                      ← deterministischer Coach-Kern (Code = Systematik)
+│   └── session-scan.ts                ← „letzte 20 Einheiten dieser Übung" finden (Historie-Suche)
 ├── functions/                         ← Cloud Functions (Node 22, europe-west3)
 │   └── src/                           ← index.ts (Callable) + lib/ (context, prompt, guardrails) + llm/
 ├── eval/                              ← zero-dep Eval-Harness + Offline-Tests (npm test)
@@ -156,6 +157,7 @@ Dann: [Aufgabe beschreiben]
 
 - **context_dependent-Flag:** Maschinen-/Seilzugübungen nur innerhalb desselben Studios vergleichen
 - **Exercise Progress:** Zweistufige Query (Trainings → exercises → sets), max. 20 Sessions, kein Zeitraum-Filter im MVP
+- **„20 Sessions" heißt 20 Einheiten DIESER Übung — nicht 20 Trainings:** Die Suche läuft rückwärts durch die abgeschlossenen Trainings, bis 20 Treffer beisammen sind (`shared/session-scan.ts`, `collectExerciseSessions`). Sie darf **nicht** auf „die letzten 20 Trainings durchsuchen" zurückgebaut werden: Bei rotierenden Übungen (Split, Cardio) fällt die Historie sonst komplett aus dem Fenster — 2026-08 hatten dadurch 12 von 32 Übungen keinen Verlauf mehr (u. a. „Indoor Cycle": 6 Einheiten vorhanden, 1 sichtbar → „Noch zu wenig Daten"). Betrifft alle drei Nutzer der Historie: Verlaufschart (`useExerciseProgress`), Zuletzt-Label + Live-Progressbalken (`useExerciseReference`) und den KI-Coach (`functions/src/index.ts`, `fetchSessions`). Gedeckelt ist nur die Zahl der durchsuchten Trainings (`MAX_TRAININGS_SCANNED = 300`, ~2 Jahre Historie), weil jedes Training eine eigene Subcollection-Query kostet.
 - **1RM (Epley):** `weight × (1 + reps / 30)`, nur gültig für reps ≤ 15
 - **Standard-Metrik:** Max-Gewicht (nicht 1RM)
 - **Templates sind flexibel:** Übungen dürfen abweichen, kein starres Korsett
