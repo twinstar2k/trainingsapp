@@ -178,7 +178,10 @@ Damit ist der Ablauf: **Feature-Branch → Commit → lokale Sichtprüfung → M
 (der Push deployt). Kein manueller Hosting-Deploy mehr nötig.
 
 Alles Übrige bleibt bewusst manuell — es braucht weitere IAM-Rechte bzw. kann im Fehlerfall
-die App aussperren:
+die App aussperren. **Der Workflow warnt aber sichtbar**, wenn ein Push `shared/`, `functions/`,
+`firestore.rules` oder `firestore.indexes.json` berührt hat: Dann ist Hosting live, der Rest
+läuft noch auf altem Stand. Besonders relevant bei `shared/` — das nutzen App **und** Function,
+sonst rechnet der Coach mit altem Code weiter.
 
 ```bash
 firebase deploy --only functions                      # Cloud Functions (KI-Empfehlung)

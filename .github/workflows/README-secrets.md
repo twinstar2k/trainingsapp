@@ -93,3 +93,22 @@ gh run view --log     # Log ansehen
 - **Keine Firestore Rules oder Indizes.** Ebenfalls bewusst manuell — ein fehlerhafter
   Rules-Deploy sperrt im Zweifel die ganze App aus.
 - **Kein Deploy aus Pull Requests.** Siehe Kommentar oben in `deploy-hosting.yml`.
+
+### Aber: Der Workflow warnt, wenn ein manueller Deploy fällig ist
+
+Der letzte Schritt vergleicht den Push gegen den Vorgängerstand und meldet sichtbar (Annotation
+oben am Lauf **und** Job-Summary), wenn etwas geändert wurde, das Hosting allein nicht abdeckt:
+
+| Geändert | Fälliger Befehl |
+|---|---|
+| `shared/` oder `functions/` | `firebase deploy --only functions` |
+| `firestore.rules` | `firebase deploy --only firestore:rules` |
+| `firestore.indexes.json` | `firebase deploy --only firestore:indexes` |
+
+**Warum das wichtig ist:** `shared/` (Metriken, Policy-Kern, `session-scan.ts`,
+`studio-filter.ts`) wird von der App **und** der Cloud Function genutzt. Ohne den Hinweis geht
+die App neu live, während der Coach weiter mit altem Code rechnet — stille Drift, dieselbe
+Fehlerklasse, vor der `CLAUDE.md` bei den Security Rules warnt.
+
+Bewusst nur eine **Warnung, kein Fehler**: Die App-Änderung soll ja live gehen, sie ist nicht
+falsch — es fehlt nur noch ein zweiter Schritt.
