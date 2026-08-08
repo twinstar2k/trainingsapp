@@ -8,6 +8,19 @@ Firebase-Bezug** — anwendbar auf jedes Frontend-Projekt mit gehosteter Datenba
 Die Firebase-Umsetzung dieses Blueprints liegt in `.github/workflows/deploy-hosting.yml`
 und `.github/workflows/README-secrets.md`.
 
+## Die vier Prinzipien in Kurzform
+
+| Prinzip | Kern | Abschnitt |
+|---|---|---|
+| **Push-to-Deploy** | Der Push ist der einzige Weg nach Produktion. Kein lokaler Deploy, sterile Build-Umgebung, gepinnte Werkzeuge | 1, 2, 6 |
+| **Begrenzter Schadensradius** | Nur das Frontend wird automatisiert. Die Pipeline hat deshalb keine Rechte an Datenbank und Server-Funktionen | 9 |
+| **Drift-Warnung** | Was die Pipeline nicht deployt, meldet sie beim Push — nicht blockierend, mit fertigem Befehl | 5 |
+| **Vorwärts-Test-Konvention** | Entscheidungslogik entsteht als reine Funktion mit Test, statt nachträglich aus Hooks extrahiert zu werden | 7 |
+
+Dazu zwei Abschnitte, die keinem Prinzip zuzuordnen sind, aber in der Praxis am häufigsten
+Fehler verhindern: die **Prüfschritte gegen den stummen Fehlschlag** (Abschnitt 3) und die
+**Entscheidungsregel für Secrets** (Abschnitt 4).
+
 ---
 
 ## 1. Der Arbeitsablauf
@@ -49,8 +62,29 @@ im Repo liegen. Der Live-Stand ist dann grundsätzlich nicht aus dem Repository 
 auch bei korrekter Reihenfolge. Erst wenn die CI aus dem gepushten Commit in einer frischen
 Umgebung baut, gilt: **was live ist, steht auf dem Server-Repo.**
 
-> Solange noch lokal deployt wird, hilft als Minimalschutz: vor dem Deploy prüfen, dass
-> `git status` sauber ist und `HEAD == origin/main`.
+**Der kaputte Build wird zum Sicherheitsnetz.** Bricht der Build in der CI — fehlender Import,
+Tippfehler, fehlgeschlagener Test —, bleibt die Live-App unberührt auf dem letzten stabilen
+Stand. Lokal ist derselbe Fehler gefährlicher: Ein abgebrochener oder halb erzeugter
+Ausgabeordner kann trotzdem hochgeladen werden. Die Pipeline macht „kaputt" damit zu einem
+folgenlosen Zustand statt zu einem Risiko.
+
+### Lokalen Deploy in Produktion abschaffen, nicht nur vermeiden
+
+Sobald die Pipeline steht, ist der manuelle Deploy-Befehl kein Werkzeug mehr, sondern eine
+Fehlerquelle — er umgeht Lint, Tests, Env-Check und Bundle-Prüfung und liefert wieder aus dem
+Arbeitsverzeichnis aus.
+
+**Das gilt ausdrücklich auch für den Rollback.** Ihn als „Notfallweg" offenzuhalten, ist der
+schlechteste Fall: Ausgerechnet unter Zeitdruck würde wieder lokal gebaut. Der richtige Rollback
+läuft über die **Release-Historie der Hosting-Plattform** — eine frühere, bereits ausgelieferte
+Version wieder aktivieren. Dabei wird nichts neu gebaut, und es geht genau der Stand live, der
+vorher schon lief.
+
+Wo der Weg zurück in die Historie führen muss, führt der Weg nach vorn über einen Revert-Commit
+plus Push — also wieder durch die Pipeline.
+
+> Solange noch lokal deployt wird (etwa in einem Projekt ohne Pipeline), hilft als
+> Minimalschutz: vor dem Deploy prüfen, dass `git status` sauber ist und `HEAD == origin/main`.
 
 ---
 
@@ -246,17 +280,38 @@ nur, dass die Schritte durchliefen, die wir definiert haben.
 
 ---
 
-## 9. Was bewusst nicht automatisiert wird
+## 9. Was bewusst nicht automatisiert wird — und warum das die Rechte begrenzt
 
-Nicht alles gehört in die Pipeline. Manuell bleiben sollte, was weitreichende Rechte braucht
-oder im Fehlerfall den Zugang zur App zerstört:
+Nicht alles gehört in die Pipeline. Manuell bleiben sollte, was im Fehlerfall den Zugang zur App
+zerstört oder nicht rückgängig zu machen ist:
 
 - **Datenbankregeln / RLS-Policies** — ein fehlerhafter Deploy sperrt alle Nutzer aus
 - **Migrationen** — nicht ohne Weiteres rückgängig zu machen
 - **Server-/Edge-Functions** — brauchen meist weitergehende Rechte und Zugriff auf Secrets
 
-Diese Entscheidung ist nur haltbar **zusammen mit der Drift-Warnung aus Abschnitt 5** — sonst
-verlässt man sich darauf, dass niemand den zweiten Schritt vergisst.
+### Der zweite, wichtigere Grund: begrenzter Schadensradius
+
+Diese Trennung ist nicht nur Betriebsvorsicht — sie **begrenzt, was ein kompromittiertes
+CI-Secret anrichten kann**. Weil die Pipeline ausschließlich das Frontend ausliefert, braucht ihr
+Zugangskonto auch nur Rechte fürs Frontend-Hosting:
+
+| Die Pipeline **darf** | Die Pipeline **darf nicht** |
+|---|---|
+| statische Dateien ausliefern | Datenbankregeln ändern |
+| Projektdaten lesen | Migrationen ausführen |
+| | Server-Funktionen deployen |
+| | Nutzerdaten lesen oder schreiben |
+| | auf Secrets der Laufzeitumgebung zugreifen |
+
+Wer die Infrastruktur mit automatisiert, muss dem Deploy-Konto Administratorrechte auf der
+Datenbank geben. Damit wird ein einziges geleaktes CI-Secret vom Ärgernis zum Totalschaden.
+
+**Umgekehrt gelesen ist das ein Prüfkriterium:** Wenn dein Deploy-Konto mehr darf, als die
+Pipeline tatsächlich tut, sind die Rechte zu weit gefasst. Vergib das Minimum und lass den ersten
+Lauf zeigen, was wirklich fehlt.
+
+Die Entscheidung ist allerdings nur haltbar **zusammen mit der Drift-Warnung aus Abschnitt 5** —
+sonst verlässt man sich darauf, dass niemand den zweiten Schritt vergisst.
 
 ---
 
@@ -275,6 +330,15 @@ Provider-Annahmen.
 
 Der `anon key` ist öffentlich by design — der Schutz liegt in den **RLS-Policies**. Wer ihn als
 Secret behandelt, gewinnt nichts; wer keine RLS-Policies hat, verliert alles.
+
+**Typische Aufteilung nach Ordnern:**
+
+| Pfad | Deploy |
+|---|---|
+| `src/` (Frontend) | **automatisch** durch die Pipeline |
+| `supabase/migrations/` (Schema + RLS-Policies) | **manuell**, mit Drift-Warnung → `supabase db push` |
+| `supabase/functions/` (Edge Functions) | **manuell**, mit Drift-Warnung → `supabase functions deploy` |
+| geteilter Code (z. B. `shared/`) | löst die Warnung für **Edge Functions** mit aus |
 
 **Vor dem Übertragen zu klären:**
 

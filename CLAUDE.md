@@ -189,8 +189,22 @@ sonst rechnet der Coach mit altem Code weiter.
 firebase deploy --only functions                      # Cloud Functions (KI-Empfehlung)
 firebase deploy --only firestore:indexes              # Indizes
 firebase deploy --only firestore:rules                # Rules
-npm run build && firebase deploy --only hosting       # Hosting von Hand (Notfall/Rollback)
 ```
+
+**Hosting nie von Hand deployen** — auch nicht im Notfall. Ein lokaler Deploy umgeht Lint,
+Tests, Env-Check und Bundle-Prüfung und liefert wieder aus dem Arbeitsverzeichnis aus, statt aus
+dem gepushten Stand. Stattdessen:
+
+- **Rollback** → Firebase Console → Hosting → Release-Historie → frühere Version aktivieren.
+  Dabei wird nichts neu gebaut; es geht exakt der Stand live, der vorher schon lief.
+- **Vorwärts korrigieren** → Revert-Commit + Push (läuft durch die Pipeline).
+- **Deploy ohne Code-Änderung wiederholen** → GitHub → Actions → *Deploy Hosting* →
+  *Run workflow*.
+
+Das Deploy-Dienstkonto hat bewusst nur Hosting-Rechte (`firebasehosting.admin` +
+`firebase.viewer`) — es kann weder Rules noch Functions noch Nutzerdaten anfassen. Ein geleaktes
+CI-Secret bleibt damit auf das Hosting begrenzt. Hintergrund und übertragbare Fassung:
+`docs/prozess-blueprint.md`.
 
 KI-Konzept/Architektur: `docs/architecture/ai-coach-engine.md` (Policy-first, Trend/Plateau),
 `docs/architecture/progressionsstrategien-krafttraining.md` (Trainingswissenschaft, ACSM 2026).
