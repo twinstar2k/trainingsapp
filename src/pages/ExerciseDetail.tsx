@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { doc, getDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { Exercise } from '../types';
 import { useExerciseProgress, SessionProgress } from '../hooks/useExerciseProgress';
+import { resolveStudioFilter } from '../../shared/studio-filter';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import {
@@ -66,12 +67,20 @@ function metricValue(session: SessionProgress, metric: Metric): number | null {
 export default function ExerciseDetail() {
   const { exerciseId } = useParams<{ exerciseId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
+  // Studio des Trainings, aus dem die Seite geöffnet wurde (ExerciseCard gibt es mit).
+  const fromStudioId = (location.state as { studioId?: string } | null)?.studioId ?? '';
+
   const [exercise, setExercise] = useState<Exercise | null>(null);
-  const [currentStudioId, setCurrentStudioId] = useState('');
+  const [fallbackStudioId, setFallbackStudioId] = useState('');
+  const [studioLookupDone, setStudioLookupDone] = useState(false);
+  const [studioName, setStudioName] = useState('');
   const [exerciseLoading, setExerciseLoading] = useState(true);
   const [activeMetric, setActiveMetric] = useState<Metric>('maxWeight');
+
+  const currentStudioId = fromStudioId || fallbackStudioId;
 
   // Load exercise from global catalog
   useEffect(() => {
@@ -100,9 +109,11 @@ export default function ExerciseDetail() {
     }
   }, [exercise, activeMetric]);
 
-  // Determine current studioId from most recent training
+  // Fallback nur für den Direktaufruf ohne Herkunftstraining (z.B. URL in neuem Tab):
+  // Studio des jüngsten Trainings. Entfällt, wenn die Seite aus einem Training geöffnet wurde.
   useEffect(() => {
     if (!user || !db) return;
+    if (fromStudioId) { setStudioLookupDone(true); return; }
     const load = async () => {
       try {
         const trainingsRef = collection(db, 'users', user.uid, 'trainings');
@@ -110,20 +121,42 @@ export default function ExerciseDetail() {
           query(trainingsRef, orderBy('date', 'desc'), limit(1))
         );
         if (!snap.empty) {
-          setCurrentStudioId(snap.docs[0].data().studioId as string);
+          setFallbackStudioId(snap.docs[0].data().studioId as string);
         }
       } catch (err) {
         console.error('ExerciseDetail: load studioId error', err);
+      } finally {
+        setStudioLookupDone(true);
       }
     };
     load();
-  }, [user]);
+  }, [user, fromStudioId]);
 
   const contextDependent = exercise?.contextDependent ?? false;
+  // Bei studiogebundenen Übungen wird erst geladen, wenn das Studio feststeht — sonst würde
+  // ungefiltert über alle Studios geladen und der Verlauf mischte die Studios.
+  const { ready: studioReady } = resolveStudioFilter(contextDependent, currentStudioId);
+
+  // Studioname für die Kopfzeile, damit sichtbar ist, welcher Verlauf gezeigt wird.
+  useEffect(() => {
+    if (!user || !db || !contextDependent || !currentStudioId) {
+      setStudioName('');
+      return;
+    }
+    let cancelled = false;
+    getDoc(doc(db, 'users', user.uid, 'studios', currentStudioId))
+      .then(snap => {
+        if (!cancelled && snap.exists()) setStudioName(snap.data().name as string);
+      })
+      .catch(err => console.error('ExerciseDetail: load studio name error', err));
+    return () => { cancelled = true; };
+  }, [user, contextDependent, currentStudioId]);
+
   const { sessions, loading, error } = useExerciseProgress(
     exerciseId ?? '',
     contextDependent,
-    currentStudioId
+    currentStudioId,
+    !exerciseLoading && studioReady
   );
 
   if (exerciseLoading) {
@@ -201,9 +234,11 @@ export default function ExerciseDetail() {
           <h2 className="text-xl font-headline font-extrabold tracking-tight text-on-surface leading-tight truncate">
             {exercise.name}
           </h2>
+          {/* Bei studiogebundenen Übungen den Studionamen nennen — der Verlauf zeigt
+              ausschließlich dieses Studio, das muss sichtbar sein. */}
           <p className="text-xs text-on-surface-variant">
             {exercise.muscleGroup}
-            {exercise.contextDependent && ' · studiobezogen'}
+            {exercise.contextDependent && (studioName ? ` · ${studioName}` : ' · studiobezogen')}
           </p>
         </div>
       </div>
@@ -295,7 +330,18 @@ export default function ExerciseDetail() {
           Verlauf · {METRIC_LABELS[activeMetric]}
         </h3>
 
-        {loading ? (
+        {!studioReady ? (
+          studioLookupDone ? (
+            <div className="h-48 flex flex-col items-center justify-center text-on-surface-variant text-sm text-center px-4 gap-2">
+              <TrendingUp className="w-8 h-8 opacity-30" />
+              <span>Kein Studio zugeordnet — öffne den Verlauf aus einem Training.</span>
+            </div>
+          ) : (
+            <div className="h-48 flex items-center justify-center text-on-surface-variant text-sm">
+              Lade...
+            </div>
+          )
+        ) : loading ? (
           <div className="h-48 flex items-center justify-center text-on-surface-variant text-sm">
             Lade...
           </div>

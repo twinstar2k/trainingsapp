@@ -62,8 +62,11 @@ export function ExerciseCard({
           <div>
             {/* Muskelgruppe klein am Namen; Studio-gebunden bewusst nicht mehr in der Karte —
                 die Info zählt bei der Übungsauswahl (Katalog/Detailseite), nicht im Training. */}
+            {/* Studio des Herkunftstrainings mitgeben: Bei studiogebundenen Übungen zeigt der
+                Verlauf nur dieses Studio (ADR-03) — ohne den Kontext fiele er aufs jüngste
+                Training zurück und zeigte fremde Studios. */}
             <button
-              onClick={() => navigate(`/exercises/${details.id}`)}
+              onClick={() => navigate(`/exercises/${details.id}`, { state: { studioId } })}
               className="font-bold text-on-surface hover:text-primary transition-colors text-left"
             >
               {details.name}

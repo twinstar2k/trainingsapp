@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { ExerciseType } from '../types';
 import { collectExerciseSessions, MAX_TRAININGS_SCANNED } from '../../shared/session-scan';
+import { resolveStudioFilter } from '../../shared/studio-filter';
 import {
   SetData,
   formatLastSessionLabel,
@@ -55,17 +56,22 @@ export function useExerciseReference(
       return;
     }
 
+    // Gegen verspätete Antworten: siehe useExerciseProgress — bei Übungs-/Studiowechsel darf
+    // eine noch laufende Query den neueren Stand nicht überschreiben.
+    let cancelled = false;
+
     const load = async () => {
       setLoading(true);
       try {
+        const { filterStudioId } = resolveStudioFilter(contextDependent, currentStudioId);
         const trainingsRef = collection(db, 'users', user.uid, 'trainings');
         const constraints = [
           where('status', '==', 'completed'),
           orderBy('date', 'desc'),
           limit(MAX_TRAININGS_SCANNED),
         ];
-        if (contextDependent && currentStudioId) {
-          constraints.splice(1, 0, where('studioId', '==', currentStudioId));
+        if (filterStudioId) {
+          constraints.splice(1, 0, where('studioId', '==', filterStudioId));
         }
 
         const trainingsSnap = await getDocs(query(trainingsRef, ...constraints));
@@ -105,7 +111,7 @@ export function useExerciseReference(
           exerciseType === 'weighted' || exerciseType === 'isometric'
             ? exerciseType
             : 'reps_only';
-        setLabel(latest ? formatLastSessionLabel(latest.sets, labelType) || null : null);
+        if (!cancelled) setLabel(latest ? formatLastSessionLabel(latest.sets, labelType) || null : null);
 
         // Bestleistung: Maximum der Referenzmetrik; bei Gleichstand gewinnt die jüngste
         let bestRef: BestSessionReference | null = null;
@@ -115,17 +121,17 @@ export function useExerciseReference(
             bestRef = { value, date: s.date };
           }
         }
-        setBest(bestRef);
+        if (!cancelled) setBest(bestRef);
       } catch (err) {
         console.error('useExerciseReference error:', err);
-        setLabel(null);
-        setBest(null);
+        if (!cancelled) { setLabel(null); setBest(null); }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     load();
+    return () => { cancelled = true; };
   }, [user, exerciseId, exerciseType, contextDependent, currentStudioId, enabled]);
 
   return { label, best, loading };
