@@ -163,6 +163,17 @@ Wichtige Icons:
 
 **Hinweis:** Die bestehende App verwendet Lucide React Icons. Für die Migration entweder komplett auf Material Symbols umstellen oder bei Lucide bleiben und nur das Styling übernehmen.
 
+### Konventionen (Lucide, Stand 2026-08-08)
+
+- **`Sparkles` ist für KI-Funktionen reserviert** — Coach-Button (`ExerciseCard`) und
+  KI-Dialog (`RecommendationDialog`). Nirgends sonst verwenden: Die Trainingsqualitäts-Karte
+  trug es einmal und wirkte dadurch wie eine KI-Funktion, obwohl sie nur die eigene
+  Sterne-Bewertung zeigt.
+- **Dashboard-Karten nutzen sachlich-gegenständliche Icons** für ihren Inhalt, keine
+  metaphorischen: `Scale` (Gewicht), `Activity` (Letztes Training), `Dumbbell` (Letzte
+  Einheiten), `Gauge` (Trainingsqualität).
+- **`Star`** steht ausschließlich für die subjektive Trainingsbewertung (`TrainingRating`).
+
 ## Typografie-Skala
 
 | Element | Klassen |
