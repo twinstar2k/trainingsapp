@@ -1,15 +1,17 @@
-// Audio-Mechanik des Pausen-Timers. Zwei Aufgaben, eine gemeinsame Grundlage:
+// Audio-Mechanik des Pausen-Timers: Am Ende der Pause die laufende Musik stoppen.
 //
-//  1) SIGNAL: Im Studio darf nichts über den Lautsprecher plärren. Statt eines Alarms
-//     unterbricht die App kurz die laufende Musik — das Signal ist die Stille im
-//     Kopfhörer, wie bei „Wiedergabe stoppen“ des iPhone-Timers.
-//  2) AM LEBEN BLEIBEN: iOS friert JavaScript ein, sobald Safari in den Hintergrund
-//     geht — das Signal käme dann zu spät. Seiten, die Audio abspielen, friert iOS
-//     nicht ein. Während der Pause läuft deshalb ein stiller, mischbarer Loop
-//     (Typ `ambient`, damit die Musik ungestört weiterläuft).
+// Im Studio darf nichts über den Lautsprecher plärren. Statt eines Alarms beansprucht die
+// App kurz den Audio-Fokus exklusiv — das Signal ist die Stille im Kopfhörer, wie bei
+// „Wiedergabe stoppen“ des iPhone-Timers.
 //
-// Alles ist Feature-Detection + try/catch: Ohne `navigator.audioSession` (Desktop-Chrome,
-// ältere iOS-Versionen) bleibt die Funktion wirkungslos, darf aber nichts kaputt machen.
+// GRENZE, am Gerät gemessen (iPhone, iOS 26.5, Safari und Chrome, 2026-08-09):
+// Sobald der Browser in den Hintergrund geht, friert iOS die Seite ein — JavaScript stand
+// im Test 24 Sekunden still. Ein stiller Web-Audio-Loop hilft nicht (der AudioContext
+// wird „interrupted“), ein stilles <audio>-Element ebenso wenig; ein danach gestartetes
+// Signal wird mit NotAllowedError abgelehnt. Der Timer ist deshalb ein
+// VORDERGRUND-Timer; das Display wachzuhalten (Wake Lock) ist keine Bequemlichkeit,
+// sondern die tragende Maßnahme. Deshalb gibt es hier auch keinen Keep-Alive-Loop mehr:
+// Er kostete Akku und Audio-Fokus, ohne das Problem zu lösen.
 
 import type { RestSignalMode } from '../utils/restTimer';
 
@@ -17,96 +19,62 @@ import type { RestSignalMode } from '../utils/restTimer';
 type AudioSessionType = 'auto' | 'playback' | 'transient' | 'transient-solo' | 'ambient' | 'play-and-record';
 interface AudioSessionLike { type: AudioSessionType }
 
-/** Wie lange die Musik beim Signal aussetzt — kurz genug, um nicht zu stören, lang genug zum Merken. */
+/** Wie lange der exklusive Zugriff gehalten wird — lang genug, dass die Musik sicher stoppt. */
 const SIGNAL_SECONDS = 1.5;
 
 /**
  * Amplitude des „stillen“ Puffers. Bewusst nicht exakt 0: Ein Puffer aus lauter Nullen
- * kann von der Audio-Pipeline wegoptimiert werden, dann bleibt die Audio-Session inaktiv
- * und iOS friert die Seite doch ein. 0.0001 liegt weit unter der Hörschwelle.
+ * kann von der Audio-Pipeline wegoptimiert werden, dann wird die Audio-Session nie aktiv
+ * und die Musik läuft weiter. 0.0001 liegt weit unter der Hörschwelle.
  */
 const NEAR_SILENT = 0.0001;
 
 let ctx: AudioContext | null = null;
-let keepAlive: AudioBufferSourceNode | null = null;
 
 function setSessionType(type: AudioSessionType): void {
   try {
     const session = (navigator as Navigator & { audioSession?: AudioSessionLike }).audioSession;
     if (session) session.type = type;
   } catch {
-    // Nicht unterstützt oder verboten — der Timer funktioniert auch ohne, nur leiser.
+    // Nicht unterstützt — der Timer funktioniert auch ohne, nur ohne Musik-Signal.
   }
-}
-
-function ensureContext(): AudioContext | null {
-  try {
-    if (!ctx) {
-      const Ctor = window.AudioContext
-        ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) return null;
-      ctx = new Ctor();
-    }
-    if (ctx.state === 'suspended') void ctx.resume();
-    return ctx;
-  } catch {
-    return null;
-  }
-}
-
-/** Erzeugt einen unhörbaren Puffer der gewünschten Länge. */
-function nearSilentBuffer(audio: AudioContext, seconds: number): AudioBuffer {
-  const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * seconds), audio.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < data.length; i++) {
-    data[i] = (i % 2 === 0 ? NEAR_SILENT : -NEAR_SILENT);
-  }
-  return buffer;
 }
 
 /**
- * Startet den stillen Ambient-Loop und schaltet damit Audio frei.
+ * Schaltet Audio frei.
  *
  * MUSS synchron aus einem Tap-Handler heraus laufen — iOS gibt Audio nur im Rahmen einer
  * echten Nutzergeste frei. Steht davor ein `await`, ist die Geste verbraucht und der
  * Timer bleibt für den Rest der Sitzung stumm.
  */
-export function startKeepAlive(): void {
-  const audio = ensureContext();
-  if (!audio) return;
-  if (keepAlive) return;
+export function primeAudio(): void {
   try {
-    setSessionType('ambient'); // mischbar: die Musik des Nutzers läuft weiter
-    const source = audio.createBufferSource();
-    source.buffer = nearSilentBuffer(audio, 2);
-    source.loop = true;
-    source.connect(audio.destination);
-    source.start();
-    keepAlive = source;
+    if (!ctx) {
+      const Ctor = window.AudioContext
+        ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) return;
+      ctx = new Ctor();
+    }
+    // 'ambient' ist mischbar: Bis zum Signal läuft die Musik des Nutzers ungestört.
+    setSessionType('ambient');
+    if (ctx.state !== 'running') void ctx.resume();
   } catch {
-    keepAlive = null;
+    ctx = null;
   }
-}
-
-/** Beendet den Loop — nach der Pause soll kein Audio mehr aktiv sein (Akku, Audio-Fokus). */
-export function stopKeepAlive(): void {
-  if (!keepAlive) return;
-  try {
-    keepAlive.stop();
-  } catch {
-    // schon beendet
-  }
-  keepAlive = null;
 }
 
 /**
  * Signalisiert das Pausenende.
  *
- * `interrupt` unterbricht die Musik kurz und überlässt es dem System, sie danach wieder
- * fortzusetzen (`transient-solo`). `stop` lässt sie aus, bis der Nutzer sie selbst startet
- * (`playback`) — das entspricht dem iPhone-Timer. `silent` rührt die Musik nicht an.
+ * `stop` beansprucht den Audio-Fokus exklusiv (`playback`) und stoppt damit die laufende
+ * Musik, bis der Nutzer sie selbst wieder startet. `silent` rührt sie nicht an.
  *
- * Vibration läuft immer mit: Auf Android ist das ein zweiter Kanal, auf iOS wirkungslos.
+ * Kann fehlschlagen, wenn die Seite zwischenzeitlich im Hintergrund war — dann bleibt das
+ * sichtbare Signal. Bewusst kein lauter Ersatzton: Der wäre genau das, was im Studio
+ * niemand will.
+ *
+ * Vibration läuft immer mit — auf Android ein zweiter Kanal, auf iOS nicht vorhanden
+ * (am Gerät bestätigt: `navigator.vibrate` fehlt dort).
  */
 export function fireSignal(mode: RestSignalMode): void {
   try {
@@ -115,24 +83,26 @@ export function fireSignal(mode: RestSignalMode): void {
     // manche Browser werfen bei blockierter Vibration
   }
 
-  if (mode === 'silent') {
-    stopKeepAlive();
-    return;
-  }
-
-  const audio = ensureContext();
-  if (!audio) return;
+  if (mode === 'silent' || !ctx) return;
 
   try {
-    stopKeepAlive(); // der ambient-Loop würde den exklusiven Typ sonst überlagern
-    setSessionType(mode === 'stop' ? 'playback' : 'transient-solo');
-    const source = audio.createBufferSource();
-    source.buffer = nearSilentBuffer(audio, SIGNAL_SECONDS);
-    source.connect(audio.destination);
-    // Nach dem Signal zurück auf mischbar, damit die App den Audio-Fokus wieder freigibt.
+    setSessionType('playback');
+    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * SIGNAL_SECONDS), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = i % 2 === 0 ? NEAR_SILENT : -NEAR_SILENT;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    // Danach den Fokus wieder freigeben, damit die App die Wiedergabe nicht blockiert.
     source.onended = () => setSessionType('ambient');
     source.start();
   } catch {
     // Ohne Ton bleibt das sichtbare Signal — der Timer ist deshalb nicht kaputt.
   }
+}
+
+/** Gibt den Audio-Fokus frei (Abbruch der Pause). */
+export function releaseAudio(): void {
+  setSessionType('ambient');
 }

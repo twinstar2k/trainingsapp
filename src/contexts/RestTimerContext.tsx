@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
-import { startKeepAlive, stopKeepAlive, fireSignal } from '../lib/restSignal';
+import { primeAudio as unlockAudio, releaseAudio, fireSignal } from '../lib/restSignal';
 import {
   DEFAULT_REST_SETTINGS,
   adjustRestSeconds,
@@ -24,7 +24,11 @@ import {
 // nur die Mechanik, die sich nicht ohne Browser testen lässt — Intervall, Wake Lock, Audio.
 
 const STORAGE_KEY = 'trainingsapp.restTimer';
-/** Wie lange „Pause vorbei“ stehen bleibt, bevor die Leiste von selbst verschwindet. */
+/**
+ * Wie lange „Pause vorbei“ stehen bleibt, bevor die Leiste von selbst verschwindet.
+ * Gemessen ab dem Moment, in dem die Seite zuletzt sichtbar wurde — wer erst nach zwei
+ * Minuten zurückkommt, soll die Meldung noch sehen und nicht in eine leere Leiste blicken.
+ */
 const FINISHED_LINGER_MS = 15_000;
 
 type RestPhase = 'idle' | 'ready' | 'running' | 'finished';
@@ -41,6 +45,12 @@ interface RestTimerContextType {
   durationSeconds: number;
   /** 0..1 für den Fortschrittsbalken. */
   progress: number;
+  /**
+   * Wie lange die Pause schon vorbei ist (Sekunden, nur in der Phase 'finished').
+   * Wichtig, weil die Seite im Hintergrund einfriert: Wer zurückkommt, sieht sonst
+   * „Pause vorbei“ ohne zu wissen, ob das gerade eben oder vor zwei Minuten war.
+   */
+  overdue: number;
 
   /** Audio im Rahmen der Nutzergeste freischalten — MUSS synchron im Tap-Handler laufen. */
   primeAudio: () => void;
@@ -64,6 +74,7 @@ const RestTimerContext = createContext<RestTimerContextType>({
   remaining: 0,
   durationSeconds: DEFAULT_REST_SETTINGS.seconds,
   progress: 0,
+  overdue: 0,
   primeAudio: noop,
   startRest: noop,
   armRest: noop,
@@ -159,12 +170,14 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
   }, [phase, endsAt, durationSeconds]);
 
   // ── Tick ──────────────────────────────────────────────────────────────────────
+  // Läuft auch in der Phase 'finished' weiter, damit die Leiste zeigen kann, wie lange
+  // die Pause schon vorbei ist.
   useEffect(() => {
-    if (phase !== 'running' || !endsAt) return;
+    if (phase !== 'running' && phase !== 'finished') return;
     const id = window.setInterval(() => setNow(Date.now()), 250);
     setNow(Date.now());
     return () => window.clearInterval(id);
-  }, [phase, endsAt]);
+  }, [phase]);
 
   const remaining = phase === 'running' && endsAt ? remainingSeconds(endsAt, now) : 0;
 
@@ -177,15 +190,29 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
     fireSignal(signalRef.current);
   }, [phase, endsAt, remaining]);
 
-  // „Pause vorbei“ blendet sich von selbst aus.
+  // „Pause vorbei“ blendet sich von selbst aus — aber erst, nachdem der Nutzer sie auch
+  // sehen konnte. Die Frist startet beim Ablauf und erneut bei jeder Rückkehr zur Seite;
+  // ein einfacher setTimeout würde im eingefrorenen Hintergrund verstreichen und die
+  // Meldung direkt nach dem Zurückkommen wegräumen.
+  const [finishedSeenAt, setFinishedSeenAt] = useState<number | null>(null);
+
   useEffect(() => {
-    if (phase !== 'finished') return;
-    const id = window.setTimeout(() => {
-      setPhase('idle');
-      setEndsAt(null);
-    }, FINISHED_LINGER_MS);
-    return () => window.clearTimeout(id);
+    if (phase !== 'finished') {
+      setFinishedSeenAt(null);
+      return;
+    }
+    setFinishedSeenAt(Date.now());
+    const onVisibility = () => { if (!document.hidden) setFinishedSeenAt(Date.now()); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== 'finished' || finishedSeenAt === null) return;
+    if (now - finishedSeenAt < FINISHED_LINGER_MS) return;
+    setPhase('idle');
+    setEndsAt(null);
+  }, [phase, finishedSeenAt, now]);
 
   // ── Wake Lock ─────────────────────────────────────────────────────────────────
   // Hält das Display während der Pause an. iOS gibt den Lock beim Verlassen der Seite
@@ -223,15 +250,8 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
     };
   }, [phase]);
 
-  // Audio-Loop nur während der laufenden Pause.
-  useEffect(() => {
-    if (phase === 'idle') stopKeepAlive();
-  }, [phase]);
-
-  useEffect(() => () => { stopKeepAlive(); }, []);
-
   // ── Aktionen ──────────────────────────────────────────────────────────────────
-  const primeAudio = useCallback(() => startKeepAlive(), []);
+  const primeAudio = useCallback(() => unlockAudio(), []);
 
   const startRest = useCallback((seconds?: number) => {
     const duration = clampRestSeconds(seconds ?? settings.seconds);
@@ -261,7 +281,7 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
   const cancelRest = useCallback(() => {
     setPhase('idle');
     setEndsAt(null);
-    stopKeepAlive();
+    releaseAudio();
   }, []);
 
   const progress = phase === 'finished'
@@ -270,11 +290,13 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
       ? restProgress(endsAt, durationSeconds, now)
       : 0;
 
+  const overdue = phase === 'finished' && endsAt ? Math.max(0, Math.floor((now - endsAt) / 1000)) : 0;
+
   return (
     <RestTimerContext.Provider
       value={{
         settings, settingsLoaded, updateSettings,
-        phase, remaining, durationSeconds, progress,
+        phase, remaining, durationSeconds, progress, overdue,
         primeAudio, startRest, armRest, adjustRest, cancelRest,
       }}
     >

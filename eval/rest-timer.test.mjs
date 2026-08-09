@@ -123,11 +123,18 @@ function check(label, cond, got) {
 {
   const d = parseRestSettings(null);
   check('G leeres Dokument → Voreinstellung',
-    d.mode === 'auto' && d.seconds === REST_DEFAULT && d.signal === 'interrupt', d);
+    d.mode === 'auto' && d.seconds === REST_DEFAULT && d.signal === 'stop', d);
 
-  const full = parseRestSettings({ restTimerMode: 'manual', restSeconds: 180, restSignal: 'stop' });
+  const full = parseRestSettings({ restTimerMode: 'manual', restSeconds: 180, restSignal: 'silent' });
   check('G gesetzte Werte werden übernommen',
-    full.mode === 'manual' && full.seconds === 180 && full.signal === 'stop', full);
+    full.mode === 'manual' && full.seconds === 180 && full.signal === 'silent', full);
+
+  // 'interrupt' gab es in einer frühen Fassung („kurz unterbrechen, dann fortsetzen“).
+  // Am Gerät kam die Musik nie von allein zurück, der Modus wurde entfernt. Bereits
+  // gespeicherte Werte müssen sauber auf 'stop' fallen, nicht ins Leere laufen.
+  check('G Altwert interrupt → stop',
+    parseRestSettings({ restSignal: 'interrupt' }).signal === 'stop',
+    parseRestSettings({ restSignal: 'interrupt' }));
 
   // Ein kaputtes Feld darf die beiden anderen nicht mitreißen.
   const mixed = parseRestSettings({ restTimerMode: 'quatsch', restSeconds: 180, restSignal: 'silent' });

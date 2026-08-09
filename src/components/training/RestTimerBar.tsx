@@ -8,7 +8,7 @@ import { REST_MAX, REST_MIN, REST_STEP, formatRestTime } from '../../utils/restT
 //
 // `bottom-28` entspricht dem `pb-28`, mit dem AppLayout die Höhe der Navigation freihält.
 export function RestTimerBar() {
-  const { phase, remaining, durationSeconds, progress, startRest, adjustRest, cancelRest } = useRestTimer();
+  const { phase, remaining, durationSeconds, progress, overdue, startRest, adjustRest, cancelRest } = useRestTimer();
 
   if (phase === 'idle') return null;
 
@@ -46,6 +46,13 @@ export function RestTimerBar() {
               </div>
               {ready && (
                 <p className="text-xs text-outline mt-1">Pause bereit — antippen zum Starten</p>
+              )}
+              {/* War die App zwischendurch im Hintergrund, stand der Timer nicht — er lief
+                  nur unbemerkt ab. Ohne diese Zeile wüsste man nicht, wie lange schon. */}
+              {finished && overdue >= 5 && (
+                <p className="text-xs text-amber-700 mt-1">
+                  vor {formatRestTime(overdue)} abgelaufen
+                </p>
               )}
             </div>
 

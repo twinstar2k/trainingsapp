@@ -20,8 +20,15 @@ export const REST_DEFAULT = 90;
 
 /** Wann startet der Timer? */
 export type RestTimerMode = 'auto' | 'manual' | 'off';
-/** Wie wird das Pausenende signalisiert? */
-export type RestSignalMode = 'interrupt' | 'stop' | 'silent';
+/**
+ * Wie wird das Pausenende signalisiert?
+ *
+ * Es gab einen dritten Modus „kurz unterbrechen und automatisch fortsetzen“
+ * (`transient-solo`). Am Gerät getestet (iOS 26.5, 2026-08-09): Die Musik stoppt, kommt
+ * aber nicht von allein zurück — der Modus wäre ein Versprechen gewesen, das das System
+ * nicht einlöst. Deshalb nur noch: stoppen oder gar nichts anfassen.
+ */
+export type RestSignalMode = 'stop' | 'silent';
 
 /** Die drei Nutzereinstellungen, wie sie auf users/{uid} liegen. */
 export interface RestSettings {
@@ -33,7 +40,7 @@ export interface RestSettings {
 export const DEFAULT_REST_SETTINGS: RestSettings = {
   mode: 'auto',
   seconds: REST_DEFAULT,
-  signal: 'interrupt',
+  signal: 'stop',
 };
 
 /** Ein laufender oder wiederhergestellter Timer. */
@@ -127,8 +134,8 @@ export function parseRestSettings(data: Record<string, unknown> | null | undefin
     seconds: data?.restSeconds === undefined
       ? DEFAULT_REST_SETTINGS.seconds
       : clampRestSeconds(data.restSeconds),
-    signal: signal === 'interrupt' || signal === 'stop' || signal === 'silent'
-      ? signal
-      : DEFAULT_REST_SETTINGS.signal,
+    // 'interrupt' war ein früher Modus, der am Gerät nicht funktionierte — gespeicherte
+    // Altwerte landen über den Fallback automatisch auf 'stop'.
+    signal: signal === 'stop' || signal === 'silent' ? signal : DEFAULT_REST_SETTINGS.signal,
   };
 }
