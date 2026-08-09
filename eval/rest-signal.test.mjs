@@ -39,8 +39,13 @@ const vibrations = [];
 let resumeCalls = 0, contextCount = 0;
 let lastSource = null;
 
+let lastContext = null;
+
 class FakeAudioContext {
-  constructor() { contextCount++; this.state = 'suspended'; this.sampleRate = 48000; this.destination = {}; }
+  constructor() {
+    contextCount++; this.state = 'suspended'; this.sampleRate = 48000; this.destination = {};
+    lastContext = this;
+  }
   resume() { resumeCalls++; this.state = 'running'; return Promise.resolve(); }
   createBuffer(_ch, length) { return { getChannelData: () => new Float32Array(length) }; }
   createBufferSource() {
@@ -117,6 +122,33 @@ const { primeAudio, fireSignal, releaseAudio } = await import(URL_);
   releaseAudio();
   check('E Session auf auto', audioSession.type === 'auto', audioSession.type);
   check('E nichts abgespielt', started.length === playedBefore, started);
+}
+
+// ── G: Unterbrochener Kontext wird vor dem Signal wieder gestartet ──────────────
+// HINTERGRUND (Bug 2026-08-09, zweite Runde): Die Musik stoppte mal, mal nicht. iOS
+// unterbricht den AudioContext, während eine andere App den Audio-Fokus hält — im
+// Spike-Log als state 'interrupted' sichtbar. Zwischen dem Abhaken (dort läuft
+// primeAudio) und dem Ablauf liegen bis zu zehn Minuten; ein start() auf einem
+// unterbrochenen Kontext rendert nichts, die Session wird nie aktiv, die Musik läuft
+// weiter. Deshalb muss fireSignal den Kontext selbst wieder hochfahren.
+{
+  const playedBefore = started.length, resumesBefore = resumeCalls;
+  lastContext.state = 'interrupted';   // iOS hat den Kontext kassiert
+  fireSignal('stop');
+  await new Promise((r) => setTimeout(r, 0));
+  check('G resume wurde aufgerufen', resumeCalls === resumesBefore + 1, resumeCalls);
+  check('G Signal wurde trotzdem abgespielt', started.length === playedBefore + 1, started);
+  check('G Kontext läuft wieder', lastContext.state === 'running', lastContext.state);
+}
+
+// ── H: Läuft der Kontext bereits, wird nicht unnötig neu gestartet ──────────────
+{
+  const resumesBefore = resumeCalls, playedBefore = started.length;
+  lastContext.state = 'running';
+  fireSignal('stop');
+  await new Promise((r) => setTimeout(r, 0));
+  check('H kein überflüssiges resume', resumeCalls === resumesBefore, resumeCalls);
+  check('H Signal abgespielt', started.length === playedBefore + 1, started);
 }
 
 // ── F: Fehlende APIs dürfen nichts umwerfen ─────────────────────────────────────

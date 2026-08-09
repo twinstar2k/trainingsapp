@@ -94,22 +94,35 @@ export function fireSignal(mode: RestSignalMode): void {
   }
 
   if (mode === 'silent' || !ctx) return;
+  const audio = ctx;
 
+  const play = () => {
+    try {
+      setSessionType('playback');
+      const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * SIGNAL_SECONDS), audio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = i % 2 === 0 ? NEAR_SILENT : -NEAR_SILENT;
+
+      const source = audio.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audio.destination);
+      // Danach zurück auf 'auto' — NICHT auf 'ambient'. Eine explizit gesetzte Session
+      // wirkt in Chrome für iOS exklusiv, sobald der Kontext das nächste Mal startet.
+      source.onended = () => setSessionType('auto');
+      source.start();
+    } catch {
+      // Ohne Ton bleibt das sichtbare Signal — der Timer ist deshalb nicht kaputt.
+    }
+  };
+
+  // Zwischen dem Freischalten (beim Abhaken) und dem Ablauf liegen Minuten. In dieser Zeit
+  // unterbricht iOS den Kontext regelmäßig, sobald die Musik-App den Audio-Fokus hält —
+  // ein start() darauf rendert nichts und die Musik läuft weiter. Deshalb erst hochfahren.
   try {
-    setSessionType('playback');
-    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * SIGNAL_SECONDS), ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = i % 2 === 0 ? NEAR_SILENT : -NEAR_SILENT;
-
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    // Danach zurück auf 'auto' — NICHT auf 'ambient'. Eine explizit gesetzte Session
-    // wirkt in Chrome für iOS exklusiv, sobald der Kontext das nächste Mal startet.
-    source.onended = () => setSessionType('auto');
-    source.start();
+    if (audio.state === 'running') play();
+    else void audio.resume().then(play, () => { /* nicht erlaubt → nur sichtbares Signal */ });
   } catch {
-    // Ohne Ton bleibt das sichtbare Signal — der Timer ist deshalb nicht kaputt.
+    // s.o.
   }
 }
 
