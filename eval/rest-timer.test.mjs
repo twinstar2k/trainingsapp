@@ -13,7 +13,7 @@
 
 import { existsSync } from 'node:fs';
 
-const URL_ = new URL('./lib/restTimer.js', import.meta.url);
+const URL_ = new URL('./lib/utils/restTimer.js', import.meta.url);
 if (!existsSync(URL_)) {
   console.error('✗ Kompilierter Rest-Timer fehlt. Bitte zuerst bauen (siehe Kopf dieser Datei).');
   process.exit(2);

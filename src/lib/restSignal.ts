@@ -12,6 +12,14 @@
 // VORDERGRUND-Timer; das Display wachzuhalten (Wake Lock) ist keine Bequemlichkeit,
 // sondern die tragende Maßnahme. Deshalb gibt es hier auch keinen Keep-Alive-Loop mehr:
 // Er kostete Akku und Audio-Fokus, ohne das Problem zu lösen.
+//
+// ZWEITE GRENZE (Bug 2026-08-09): Die Audio-Session darf VOR dem Signal nicht angefasst
+// werden. Am Gerät isoliert gemessen: `audioSession.type = 'ambient'` allein ist harmlos,
+// ein AudioContext allein auch — beides zusammen stoppt in Chrome für iOS sofort die
+// Musik. Eine explizit gesetzte Kategorie verlässt 'auto' und wird dort exklusiv
+// angewandt, sobald der Kontext startet. Safari mischt bei 'ambient' korrekt, weshalb der
+// Fehler nur in einem Browser sichtbar war. Regel: nur für das Signal 'playback' setzen,
+// danach zurück auf 'auto'. Bewacht von eval/rest-signal.test.mjs.
 
 import type { RestSignalMode } from '../utils/restTimer';
 
@@ -55,8 +63,10 @@ export function primeAudio(): void {
       if (!Ctor) return;
       ctx = new Ctor();
     }
-    // 'ambient' ist mischbar: Bis zum Signal läuft die Musik des Nutzers ungestört.
-    setSessionType('ambient');
+    // Die Audio-Session wird hier bewusst NICHT gesetzt — siehe Kopf dieser Datei.
+    // 'auto' überlässt die Kategorie dem Browser, und beide mischen dann mit der
+    // laufenden Musik. Ein explizites 'ambient' stand hier einmal und stoppte in
+    // Chrome für iOS die Musik, sobald der Kontext startete.
     if (ctx.state !== 'running') void ctx.resume();
   } catch {
     ctx = null;
@@ -94,15 +104,16 @@ export function fireSignal(mode: RestSignalMode): void {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(ctx.destination);
-    // Danach den Fokus wieder freigeben, damit die App die Wiedergabe nicht blockiert.
-    source.onended = () => setSessionType('ambient');
+    // Danach zurück auf 'auto' — NICHT auf 'ambient'. Eine explizit gesetzte Session
+    // wirkt in Chrome für iOS exklusiv, sobald der Kontext das nächste Mal startet.
+    source.onended = () => setSessionType('auto');
     source.start();
   } catch {
     // Ohne Ton bleibt das sichtbare Signal — der Timer ist deshalb nicht kaputt.
   }
 }
 
-/** Gibt den Audio-Fokus frei (Abbruch der Pause). */
+/** Gibt den Audio-Fokus frei (Abbruch der Pause) und überlässt die Kategorie wieder dem Browser. */
 export function releaseAudio(): void {
-  setSessionType('ambient');
+  setSessionType('auto');
 }
