@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { Trash2, Plus, LogOut, Database, Download, ClipboardList, ChevronRight, Pencil } from 'lucide-react';
 import { exportAllUserData, downloadBackup } from '../lib/export';
 import { GoalPicker } from '../components/ai/GoalPicker';
+import { RestTimerSettings } from '../components/training/RestTimerSettings';
 import { AI_RECOMMENDATIONS_ENABLED } from '../lib/featureFlags';
 import { PromptDialog } from '../components/ui/PromptDialog';
 
@@ -260,6 +261,12 @@ export default function Profile() {
           </div>
           <ChevronRight className="w-5 h-5 text-outline shrink-0" />
         </Link>
+      </section>
+
+      {/* Pausen-Timer */}
+      <section>
+        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">Pausen-Timer</h3>
+        <RestTimerSettings />
       </section>
 
       {/* Standard-Trainingsziel (Feature-Flag) */}
