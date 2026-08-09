@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
-import { primeAudio as unlockAudio, releaseAudio, fireSignal } from '../lib/restSignal';
+import { primeAudio as unlockAudio, fireSignal } from '../lib/restSignal';
 import {
   DEFAULT_REST_SETTINGS,
   adjustRestSeconds,
@@ -281,7 +281,6 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
   const cancelRest = useCallback(() => {
     setPhase('idle');
     setEndsAt(null);
-    releaseAudio();
   }, []);
 
   const progress = phase === 'finished'

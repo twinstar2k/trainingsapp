@@ -23,12 +23,17 @@ export type RestTimerMode = 'auto' | 'manual' | 'off';
 /**
  * Wie wird das Pausenende signalisiert?
  *
- * Es gab einen dritten Modus „kurz unterbrechen und automatisch fortsetzen“
- * (`transient-solo`). Am Gerät getestet (iOS 26.5, 2026-08-09): Die Musik stoppt, kommt
- * aber nicht von allein zurück — der Modus wäre ein Versprechen gewesen, das das System
- * nicht einlöst. Deshalb nur noch: stoppen oder gar nichts anfassen.
+ * Es gab zwei Vorgänger-Modi, die die laufende Musik über die Audio Session API
+ * unterbrechen bzw. stoppen sollten. Beide sind nach Gerätetests entfallen (iOS 26.5,
+ * 2026-08-09): „unterbrechen“ setzte die Wiedergabe nie von allein fort, und der Stopp
+ * funktionierte nur in WebKit, nur im Vordergrund und nur, wenn iOS den AudioContext
+ * nicht gerade unterbrochen hatte — in der Praxis mal ja, mal nein.
+ *
+ * Ein Ton ist die robustere Antwort und war die ganze Zeit die naheliegendere: Beim
+ * Training stecken Kopfhörer im Ohr, der Ton geht also dorthin und nicht in den Raum.
+ * Web Audio gibt es in jedem Browser; die Audio Session API dagegen nur in WebKit.
  */
-export type RestSignalMode = 'stop' | 'silent';
+export type RestSignalMode = 'tone' | 'silent';
 
 /** Die drei Nutzereinstellungen, wie sie auf users/{uid} liegen. */
 export interface RestSettings {
@@ -40,7 +45,7 @@ export interface RestSettings {
 export const DEFAULT_REST_SETTINGS: RestSettings = {
   mode: 'auto',
   seconds: REST_DEFAULT,
-  signal: 'stop',
+  signal: 'tone',
 };
 
 /** Ein laufender oder wiederhergestellter Timer. */
@@ -134,8 +139,9 @@ export function parseRestSettings(data: Record<string, unknown> | null | undefin
     seconds: data?.restSeconds === undefined
       ? DEFAULT_REST_SETTINGS.seconds
       : clampRestSeconds(data.restSeconds),
-    // 'interrupt' war ein früher Modus, der am Gerät nicht funktionierte — gespeicherte
-    // Altwerte landen über den Fallback automatisch auf 'stop'.
-    signal: signal === 'stop' || signal === 'silent' ? signal : DEFAULT_REST_SETTINGS.signal,
+    // 'interrupt' und 'stop' waren frühere Modi, die am Gerät nicht verlässlich
+    // funktionierten. Gespeicherte Altwerte landen über den Fallback auf 'tone' — wer
+    // damals „Musik stoppen“ wählte, wollte ein hörbares Signal und bekommt jetzt eines.
+    signal: signal === 'tone' || signal === 'silent' ? signal : DEFAULT_REST_SETTINGS.signal,
   };
 }

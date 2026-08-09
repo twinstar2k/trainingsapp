@@ -1,59 +1,45 @@
-// Audio-Mechanik des Pausen-Timers: Am Ende der Pause die laufende Musik stoppen.
+// Audio-Mechanik des Pausen-Timers: ein kurzer Zweiklang am Ende der Pause.
 //
-// Im Studio darf nichts über den Lautsprecher plärren. Statt eines Alarms beansprucht die
-// App kurz den Audio-Fokus exklusiv — das Signal ist die Stille im Kopfhörer, wie bei
-// „Wiedergabe stoppen“ des iPhone-Timers.
+// WARUM EIN TON UND NICHTS EXOTISCHERES
+// Beim Training stecken Kopfhörer im Ohr — der Ton geht also dorthin und nicht in den
+// Raum. Die ursprüngliche Sorge, im Studio jemanden zu beschallen, trifft diesen Fall
+// gar nicht. Frühere Fassungen unterbrachen stattdessen über die Audio Session API die
+// laufende Musik. Das ist am Gerät gescheitert (iPhone, iOS 26.5, 2026-08-09):
 //
-// GRENZE, am Gerät gemessen (iPhone, iOS 26.5, Safari und Chrome, 2026-08-09):
-// Sobald der Browser in den Hintergrund geht, friert iOS die Seite ein — JavaScript stand
-// im Test 24 Sekunden still. Ein stiller Web-Audio-Loop hilft nicht (der AudioContext
-// wird „interrupted“), ein stilles <audio>-Element ebenso wenig; ein danach gestartetes
-// Signal wird mit NotAllowedError abgelehnt. Der Timer ist deshalb ein
-// VORDERGRUND-Timer; das Display wachzuhalten (Wake Lock) ist keine Bequemlichkeit,
-// sondern die tragende Maßnahme. Deshalb gibt es hier auch keinen Keep-Alive-Loop mehr:
-// Er kostete Akku und Audio-Fokus, ohne das Problem zu lösen.
+//   • `transient-solo` setzt die Musik nie von allein fort — der Modus „kurz
+//     unterbrechen“ war ein Versprechen, das das System nicht einlöst.
+//   • `audioSession.type` überhaupt zu setzen und danach den AudioContext zu starten
+//     stoppt in Chrome für iOS sofort die Musik. Beide Operationen einzeln sind harmlos.
+//   • Die Audio Session API gibt es nur in WebKit — auf Android und im Desktop-Chrome
+//     hätte die Einstellung stumm gar nichts getan.
 //
-// ZWEITE GRENZE (Bug 2026-08-09): Die Audio-Session darf VOR dem Signal nicht angefasst
-// werden. Am Gerät isoliert gemessen: `audioSession.type = 'ambient'` allein ist harmlos,
-// ein AudioContext allein auch — beides zusammen stoppt in Chrome für iOS sofort die
-// Musik. Eine explizit gesetzte Kategorie verlässt 'auto' und wird dort exklusiv
-// angewandt, sobald der Kontext startet. Safari mischt bei 'ambient' korrekt, weshalb der
-// Fehler nur in einem Browser sichtbar war. Regel: nur für das Signal 'playback' setzen,
-// danach zurück auf 'auto'. Bewacht von eval/rest-signal.test.mjs.
+// Web Audio dagegen gibt es überall. Deshalb wird hier NIE `navigator.audioSession`
+// angefasst; die Kategorie bleibt auf 'auto', und dabei mischt jeder Browser den Ton
+// über die laufende Musik. Bewacht von eval/rest-signal.test.mjs.
+//
+// GRENZE: Sobald der Browser in den Hintergrund geht, friert iOS die Seite ein —
+// JavaScript stand im Test 24 Sekunden still, weder ein Web-Audio-Loop noch ein stilles
+// <audio>-Element ändern daran etwas. Der Timer ist deshalb ein VORDERGRUND-Timer, und
+// der Wake Lock ist keine Bequemlichkeit, sondern die tragende Maßnahme.
 
 import type { RestSignalMode } from '../utils/restTimer';
 
-// Die Audio Session API ist experimentell und fehlt in den TS-DOM-Typen.
-type AudioSessionType = 'auto' | 'playback' | 'transient' | 'transient-solo' | 'ambient' | 'play-and-record';
-interface AudioSessionLike { type: AudioSessionType }
-
-/** Wie lange der exklusive Zugriff gehalten wird — lang genug, dass die Musik sicher stoppt. */
-const SIGNAL_SECONDS = 1.5;
-
-/**
- * Amplitude des „stillen“ Puffers. Bewusst nicht exakt 0: Ein Puffer aus lauter Nullen
- * kann von der Audio-Pipeline wegoptimiert werden, dann wird die Audio-Session nie aktiv
- * und die Musik läuft weiter. 0.0001 liegt weit unter der Hörschwelle.
- */
-const NEAR_SILENT = 0.0001;
+/** Spitzenpegel des Tons. Muss die Musik durchdringen, ohne im Ohr wehzutun. */
+const PEAK = 0.35;
+/** Zweiklang: erst tiefer, dann höher — steigend wird als „fertig“ gelesen, nicht als Fehler. */
+const TONES: { freq: number; at: number; duration: number }[] = [
+  { freq: 880, at: 0.03, duration: 0.13 },
+  { freq: 1175, at: 0.25, duration: 0.18 },
+];
 
 let ctx: AudioContext | null = null;
-
-function setSessionType(type: AudioSessionType): void {
-  try {
-    const session = (navigator as Navigator & { audioSession?: AudioSessionLike }).audioSession;
-    if (session) session.type = type;
-  } catch {
-    // Nicht unterstützt — der Timer funktioniert auch ohne, nur ohne Musik-Signal.
-  }
-}
 
 /**
  * Schaltet Audio frei.
  *
- * MUSS synchron aus einem Tap-Handler heraus laufen — iOS gibt Audio nur im Rahmen einer
- * echten Nutzergeste frei. Steht davor ein `await`, ist die Geste verbraucht und der
- * Timer bleibt für den Rest der Sitzung stumm.
+ * MUSS synchron aus einem Tap-Handler heraus laufen — Browser geben Audio nur im Rahmen
+ * einer echten Nutzergeste frei. Steht davor ein `await`, ist die Geste verbraucht und
+ * der Timer bleibt für den Rest der Sitzung stumm.
  */
 export function primeAudio(): void {
   try {
@@ -63,25 +49,28 @@ export function primeAudio(): void {
       if (!Ctor) return;
       ctx = new Ctor();
     }
-    // Die Audio-Session wird hier bewusst NICHT gesetzt — siehe Kopf dieser Datei.
-    // 'auto' überlässt die Kategorie dem Browser, und beide mischen dann mit der
-    // laufenden Musik. Ein explizites 'ambient' stand hier einmal und stoppte in
-    // Chrome für iOS die Musik, sobald der Kontext startete.
     if (ctx.state !== 'running') void ctx.resume();
   } catch {
     ctx = null;
   }
 }
 
+/** Ein Ton mit weichen Flanken — ohne Rampen knackt es hörbar. */
+function playTone(audio: AudioContext, startAt: number, freq: number, duration: number): void {
+  const osc = audio.createOscillator();
+  const gain = audio.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, startAt);
+  gain.gain.exponentialRampToValueAtTime(PEAK, startAt + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+  osc.connect(gain).connect(audio.destination);
+  osc.start(startAt);
+  osc.stop(startAt + duration + 0.02);
+}
+
 /**
  * Signalisiert das Pausenende.
- *
- * `stop` beansprucht den Audio-Fokus exklusiv (`playback`) und stoppt damit die laufende
- * Musik, bis der Nutzer sie selbst wieder startet. `silent` rührt sie nicht an.
- *
- * Kann fehlschlagen, wenn die Seite zwischenzeitlich im Hintergrund war — dann bleibt das
- * sichtbare Signal. Bewusst kein lauter Ersatzton: Der wäre genau das, was im Studio
- * niemand will.
  *
  * Vibration läuft immer mit — auf Android ein zweiter Kanal, auf iOS nicht vorhanden
  * (am Gerät bestätigt: `navigator.vibrate` fehlt dort).
@@ -98,18 +87,8 @@ export function fireSignal(mode: RestSignalMode): void {
 
   const play = () => {
     try {
-      setSessionType('playback');
-      const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * SIGNAL_SECONDS), audio.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = i % 2 === 0 ? NEAR_SILENT : -NEAR_SILENT;
-
-      const source = audio.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audio.destination);
-      // Danach zurück auf 'auto' — NICHT auf 'ambient'. Eine explizit gesetzte Session
-      // wirkt in Chrome für iOS exklusiv, sobald der Kontext das nächste Mal startet.
-      source.onended = () => setSessionType('auto');
-      source.start();
+      const base = audio.currentTime;
+      for (const t of TONES) playTone(audio, base + t.at, t.freq, t.duration);
     } catch {
       // Ohne Ton bleibt das sichtbare Signal — der Timer ist deshalb nicht kaputt.
     }
@@ -117,16 +96,11 @@ export function fireSignal(mode: RestSignalMode): void {
 
   // Zwischen dem Freischalten (beim Abhaken) und dem Ablauf liegen Minuten. In dieser Zeit
   // unterbricht iOS den Kontext regelmäßig, sobald die Musik-App den Audio-Fokus hält —
-  // ein start() darauf rendert nichts und die Musik läuft weiter. Deshalb erst hochfahren.
+  // ein Start darauf erzeugt keinen hörbaren Ton. Deshalb erst hochfahren.
   try {
     if (audio.state === 'running') play();
     else void audio.resume().then(play, () => { /* nicht erlaubt → nur sichtbares Signal */ });
   } catch {
     // s.o.
   }
-}
-
-/** Gibt den Audio-Fokus frei (Abbruch der Pause) und überlässt die Kategorie wieder dem Browser. */
-export function releaseAudio(): void {
-  setSessionType('auto');
 }

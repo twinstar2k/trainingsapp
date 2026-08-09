@@ -20,8 +20,8 @@ const MODES: { key: RestTimerMode; label: string; hint: string }[] = [
 ];
 
 const SIGNALS: { key: RestSignalMode; label: string; hint: string }[] = [
-  { key: 'stop', label: 'Musik stoppen', hint: 'Wie „Wiedergabe stoppen“ beim iPhone-Timer' },
-  { key: 'silent', label: 'Nur visuell', hint: 'Rührt die Wiedergabe nicht an' },
+  { key: 'tone', label: 'Signalton', hint: 'Kurzer Zweiklang über deine Kopfhörer' },
+  { key: 'silent', label: 'Nur visuell', hint: 'Kein Ton, nur die Leiste' },
 ];
 
 const cardClass = (selected: boolean) =>
@@ -113,14 +113,13 @@ export function RestTimerSettings() {
                 </button>
               ))}
             </div>
-            {/* Bewusst kein Signalton: Im Studio soll niemand von der App beschallt werden.
-                Und bewusst offen benannt, was der Timer nicht kann — siehe src/lib/restSignal.ts. */}
+            {/* Bewusst offen benannt, was der Timer nicht kann — siehe src/lib/restSignal.ts. */}
             <p className="text-xs text-outline mt-2">
-              Kein Alarm über den Lautsprecher — das Signal ist die Stille im Kopfhörer.
-              Damit das klappt, bleibt das Display während der Pause an und die App muss im
-              Vordergrund sein: Wechselst du zwischendurch in eine andere App, hält iOS die
-              Seite an. Die Pause läuft dann zwar korrekt weiter, das Signal kommt aber erst,
-              wenn du zurück bist.
+              Der Ton läuft über deine Kopfhörer, nicht über den Lautsprecher — im Studio
+              hört ihn niemand außer dir. Das Display bleibt während der Pause an, und die
+              App muss im Vordergrund sein: Wechselst du zwischendurch in eine andere App,
+              hält das Betriebssystem die Seite an. Die Pause läuft dann korrekt weiter, das
+              Signal kommt aber erst, wenn du zurück bist.
             </p>
           </div>
         </>

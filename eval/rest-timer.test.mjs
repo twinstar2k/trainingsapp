@@ -123,18 +123,21 @@ function check(label, cond, got) {
 {
   const d = parseRestSettings(null);
   check('G leeres Dokument → Voreinstellung',
-    d.mode === 'auto' && d.seconds === REST_DEFAULT && d.signal === 'stop', d);
+    d.mode === 'auto' && d.seconds === REST_DEFAULT && d.signal === 'tone', d);
 
   const full = parseRestSettings({ restTimerMode: 'manual', restSeconds: 180, restSignal: 'silent' });
   check('G gesetzte Werte werden übernommen',
     full.mode === 'manual' && full.seconds === 180 && full.signal === 'silent', full);
 
-  // 'interrupt' gab es in einer frühen Fassung („kurz unterbrechen, dann fortsetzen“).
-  // Am Gerät kam die Musik nie von allein zurück, der Modus wurde entfernt. Bereits
-  // gespeicherte Werte müssen sauber auf 'stop' fallen, nicht ins Leere laufen.
-  check('G Altwert interrupt → stop',
-    parseRestSettings({ restSignal: 'interrupt' }).signal === 'stop',
+  // 'interrupt' und 'stop' gab es in frühen Fassungen (Musik unterbrechen bzw. stoppen).
+  // Beide sind nach Gerätetests entfallen. Bereits gespeicherte Werte müssen auf 'tone'
+  // fallen — wer damals „Musik stoppen“ wählte, wollte ein hörbares Signal.
+  check('G Altwert interrupt → tone',
+    parseRestSettings({ restSignal: 'interrupt' }).signal === 'tone',
     parseRestSettings({ restSignal: 'interrupt' }));
+  check('G Altwert stop → tone',
+    parseRestSettings({ restSignal: 'stop' }).signal === 'tone',
+    parseRestSettings({ restSignal: 'stop' }));
 
   // Ein kaputtes Feld darf die beiden anderen nicht mitreißen.
   const mixed = parseRestSettings({ restTimerMode: 'quatsch', restSeconds: 180, restSignal: 'silent' });

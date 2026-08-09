@@ -3,21 +3,19 @@
 //   1) npm run build:utils     (erzeugt eval/lib/lib/restSignal.js)
 //   2) node rest-signal.test.mjs               (oder: npm test)
 //
-// HINTERGRUND (Bug 2026-08-09, am iPhone gefunden): Beim Abhaken eines Satzes stoppte
-// sofort die Musik, statt erst am Pausenende. Ursache war NICHT das Abspielen, sondern
-// die Kombination aus zwei Zeilen in primeAudio():
+// HINTERGRUND — zwei am iPhone gefundene Fehler, die dieser Test festhält:
 //
-//     navigator.audioSession.type = 'ambient';   // "bitte mischen"
-//     new AudioContext(); ctx.resume();
+// (1) Musik stoppte schon beim Abhaken. Ursache war die Kombination aus
+//     `navigator.audioSession.type = 'ambient'` und dem Start des AudioContext: einzeln
+//     harmlos, zusammen stoppen sie in Chrome für iOS die Musik. Die Audio Session API
+//     ist außerdem WebKit-only. Konsequenz: Sie wird gar nicht mehr benutzt — das Signal
+//     ist jetzt ein Ton, der über die Kopfhörer läuft und in jedem Browser funktioniert.
+//     REGEL: `navigator.audioSession` darf hier nirgends mehr angefasst werden.
 //
-// Am Gerät isoliert gemessen: Jede Zeile für sich ist harmlos, beide zusammen stoppen in
-// Chrome für iOS die Musik. Sobald die Session explizit gesetzt ist, verlässt sie 'auto';
-// Chrome wendet die explizite Kategorie dann exklusiv an, statt zu mischen. Safari mischt
-// bei 'ambient' korrekt — der Fehler war also nur in einem der beiden Browser sichtbar.
-//
-// KERNREGEL, die dieser Test bewacht: Das Freischalten von Audio darf die Audio-Session
-// NICHT anfassen. Sie wird ausschließlich für das Signal auf 'playback' gesetzt und danach
-// auf 'auto' zurückgestellt. Wer hier wieder ein 'ambient' einbaut, bricht die Musik.
+// (2) Das Signal kam mal, mal nicht. iOS unterbricht den AudioContext, während die
+//     Musik-App den Audio-Fokus hält (im Spike als state 'interrupted' sichtbar), und
+//     zwischen Freischalten und Ablauf liegen Minuten. REGEL: fireSignal fährt den
+//     Kontext erst hoch und spielt danach ab.
 
 import { existsSync } from 'node:fs';
 
@@ -33,28 +31,37 @@ function check(label, cond, got) {
 }
 
 // ── Browser-Attrappen ───────────────────────────────────────────────────────────
-const sessionWrites = [];   // jede Zuweisung an audioSession.type
-const started = [];         // jede tatsächlich gestartete Wiedergabe
+const sessionWrites = [];   // jede Zuweisung an audioSession.type — muss leer bleiben
+const tones = [];           // jeder tatsächlich gestartete Oszillator
 const vibrations = [];
-let resumeCalls = 0, contextCount = 0;
-let lastSource = null;
-
-let lastContext = null;
+let resumeCalls = 0, contextCount = 0, lastContext = null;
 
 class FakeAudioContext {
   constructor() {
-    contextCount++; this.state = 'suspended'; this.sampleRate = 48000; this.destination = {};
+    contextCount++;
+    this.state = 'suspended';
+    this.sampleRate = 48000;
+    this.currentTime = 100;
+    this.destination = {};
     lastContext = this;
   }
   resume() { resumeCalls++; this.state = 'running'; return Promise.resolve(); }
-  createBuffer(_ch, length) { return { getChannelData: () => new Float32Array(length) }; }
-  createBufferSource() {
-    lastSource = {
-      buffer: null, onended: null,
+  createGain() {
+    return {
+      gain: {
+        setValueAtTime() {}, exponentialRampToValueAtTime() {},
+      },
       connect() { return this; },
-      start() { started.push('source'); },
     };
-    return lastSource;
+  }
+  createOscillator() {
+    const osc = {
+      type: '', frequency: { value: 0 },
+      connect() { return this; },
+      start(at) { tones.push({ freq: osc.frequency.value, at }); },
+      stop() {},
+    };
+    return osc;
   }
 }
 
@@ -70,94 +77,78 @@ Object.defineProperty(globalThis, 'navigator', {
 });
 globalThis.window = { AudioContext: FakeAudioContext };
 
-const { primeAudio, fireSignal, releaseAudio } = await import(URL_);
+const { primeAudio, fireSignal } = await import(URL_);
 
-// ── A: Freischalten lässt die Audio-Session in Ruhe ──────────────────────────────
-// Das ist der eigentliche Bug. Schlägt dieser Block fehl, stoppt im Studio die Musik,
-// sobald ein Satz abgehakt wird.
+// ── A: Freischalten startet den Kontext und sonst nichts ────────────────────────
 {
   primeAudio();
-  check('A keine Zuweisung an audioSession.type', sessionWrites.length === 0, sessionWrites);
-  check('A Session bleibt auf auto', audioSession.type === 'auto', audioSession.type);
-  check('A AudioContext wurde erzeugt', contextCount === 1, contextCount);
-  check('A AudioContext wurde gestartet', resumeCalls === 1, resumeCalls);
-  check('A nichts abgespielt', started.length === 0, started);
+  check('A AudioContext erzeugt', contextCount === 1, contextCount);
+  check('A AudioContext gestartet', resumeCalls === 1, resumeCalls);
+  check('A kein Ton beim Freischalten', tones.length === 0, tones);
 }
 
-// ── B: Mehrfaches Freischalten erzeugt keinen zweiten Kontext ────────────────────
+// ── B: Mehrfaches Freischalten erzeugt keinen zweiten Kontext ───────────────────
 {
   primeAudio();
   primeAudio();
   check('B nur ein AudioContext', contextCount === 1, contextCount);
   check('B kein erneutes resume im laufenden Zustand', resumeCalls === 1, resumeCalls);
-  check('B weiterhin keine Session-Zuweisung', sessionWrites.length === 0, sessionWrites);
 }
 
-// ── C: Signal „stop" beansprucht den Fokus und gibt ihn wieder frei ──────────────
+// ── C: Signal „tone" spielt den Zweiklang ──────────────────────────────────────
 {
-  fireSignal('stop');
-  check('C Session auf playback gesetzt', sessionWrites[0] === 'playback', sessionWrites);
-  check('C Wiedergabe gestartet', started.length === 1, started);
+  fireSignal('tone');
+  check('C zwei Töne', tones.length === 2, tones);
+  check('C steigende Tonfolge', tones[0].freq < tones[1].freq, tones.map((t) => t.freq));
+  check('C zweiter Ton später', tones[1].at > tones[0].at, tones.map((t) => t.at));
+  check('C liegt in der Zukunft', tones[0].at > lastContext.currentTime, tones[0].at);
   check('C vibriert (auf iOS wirkungslos)', vibrations.length === 1, vibrations);
-
-  // Nach dem Signal zurück auf 'auto' — NICHT auf 'ambient'. 'ambient' war genau die
-  // Einstellung, die in Chrome beim nächsten Start des Kontexts die Musik killte.
-  lastSource.onended();
-  check('C danach zurück auf auto', audioSession.type === 'auto', audioSession.type);
-  check('C niemals ambient gesetzt', !sessionWrites.includes('ambient'), sessionWrites);
 }
 
-// ── D: Signal „silent" rührt Session und Wiedergabe nicht an ────────────────────
+// ── D: Signal „silent" spielt nichts, vibriert aber ────────────────────────────
 {
-  const before = sessionWrites.length, playedBefore = started.length;
+  const before = tones.length;
   fireSignal('silent');
-  check('D keine Session-Zuweisung', sessionWrites.length === before, sessionWrites);
-  check('D nichts abgespielt', started.length === playedBefore, started);
+  check('D kein Ton', tones.length === before, tones.length);
   check('D trotzdem Vibration', vibrations.length === 2, vibrations);
 }
 
-// ── E: Abbruch gibt den Fokus frei, ohne etwas abzuspielen ──────────────────────
+// ── E: DIE Kernregel — die Audio-Session wird nirgends angefasst ────────────────
+// Ein 'ambient' oder 'playback' an dieser Stelle stoppte am Gerät die Musik und tat
+// außerhalb von WebKit ohnehin nichts. Wer das wieder einbaut, bricht beides.
 {
-  const playedBefore = started.length;
-  releaseAudio();
-  check('E Session auf auto', audioSession.type === 'auto', audioSession.type);
-  check('E nichts abgespielt', started.length === playedBefore, started);
+  check('E niemals in audioSession geschrieben', sessionWrites.length === 0, sessionWrites);
+  check('E Session steht unverändert auf auto', audioSession.type === 'auto', audioSession.type);
 }
 
-// ── G: Unterbrochener Kontext wird vor dem Signal wieder gestartet ──────────────
-// HINTERGRUND (Bug 2026-08-09, zweite Runde): Die Musik stoppte mal, mal nicht. iOS
-// unterbricht den AudioContext, während eine andere App den Audio-Fokus hält — im
-// Spike-Log als state 'interrupted' sichtbar. Zwischen dem Abhaken (dort läuft
-// primeAudio) und dem Ablauf liegen bis zu zehn Minuten; ein start() auf einem
-// unterbrochenen Kontext rendert nichts, die Session wird nie aktiv, die Musik läuft
-// weiter. Deshalb muss fireSignal den Kontext selbst wieder hochfahren.
+// ── F: Unterbrochener Kontext wird vor dem Signal wieder gestartet ──────────────
 {
-  const playedBefore = started.length, resumesBefore = resumeCalls;
+  const before = tones.length, resumesBefore = resumeCalls;
   lastContext.state = 'interrupted';   // iOS hat den Kontext kassiert
-  fireSignal('stop');
+  fireSignal('tone');
   await new Promise((r) => setTimeout(r, 0));
-  check('G resume wurde aufgerufen', resumeCalls === resumesBefore + 1, resumeCalls);
-  check('G Signal wurde trotzdem abgespielt', started.length === playedBefore + 1, started);
-  check('G Kontext läuft wieder', lastContext.state === 'running', lastContext.state);
+  check('F resume wurde aufgerufen', resumeCalls === resumesBefore + 1, resumeCalls);
+  check('F Ton kam trotzdem', tones.length === before + 2, tones.length);
+  check('F Kontext läuft wieder', lastContext.state === 'running', lastContext.state);
 }
 
-// ── H: Läuft der Kontext bereits, wird nicht unnötig neu gestartet ──────────────
+// ── G: Läuft der Kontext bereits, wird nicht unnötig neu gestartet ─────────────
 {
-  const resumesBefore = resumeCalls, playedBefore = started.length;
+  const resumesBefore = resumeCalls, before = tones.length;
   lastContext.state = 'running';
-  fireSignal('stop');
+  fireSignal('tone');
   await new Promise((r) => setTimeout(r, 0));
-  check('H kein überflüssiges resume', resumeCalls === resumesBefore, resumeCalls);
-  check('H Signal abgespielt', started.length === playedBefore + 1, started);
+  check('G kein überflüssiges resume', resumeCalls === resumesBefore, resumeCalls);
+  check('G Ton gespielt', tones.length === before + 2, tones.length);
 }
 
-// ── F: Fehlende APIs dürfen nichts umwerfen ─────────────────────────────────────
-// Desktop-Chrome hat kein navigator.audioSession, ältere Geräte kein vibrate.
+// ── H: Fehlende APIs dürfen nichts umwerfen ────────────────────────────────────
+// Ältere Geräte haben kein navigator.vibrate; Web Audio kann komplett fehlen.
 {
   Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true, writable: true });
   let threw = false;
-  try { primeAudio(); fireSignal('stop'); releaseAudio(); } catch { threw = true; }
-  check('F ohne audioSession/vibrate kein Fehler', !threw, threw);
+  try { primeAudio(); fireSignal('tone'); fireSignal('silent'); } catch { threw = true; }
+  check('H ohne vibrate kein Fehler', !threw, threw);
 }
 
 console.log(`rest-signal: ${pass} ok, ${fail} fehlgeschlagen`);
