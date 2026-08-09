@@ -24,8 +24,12 @@
 
 import type { RestSignalMode } from '../utils/restTimer';
 
-/** Spitzenpegel des Tons. Muss die Musik durchdringen, ohne im Ohr wehzutun. */
-const PEAK = 0.35;
+/**
+ * Spitzenpegel des Tons. Muss die laufende Musik durchdringen, ohne im Ohr wehzutun.
+ * Am Gerät gegen Musik im Kopfhörer verglichen (2026-08-09): 0.15 und 0.35 gingen unter,
+ * 0.6 war gut hörbar. Nicht ohne erneuten Hörtest ändern.
+ */
+const PEAK = 0.6;
 /** Zweiklang: erst tiefer, dann höher — steigend wird als „fertig“ gelesen, nicht als Fehler. */
 const TONES: { freq: number; at: number; duration: number }[] = [
   { freq: 880, at: 0.03, duration: 0.13 },
