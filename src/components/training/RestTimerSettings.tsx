@@ -1,6 +1,7 @@
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useRestTimer } from '../../contexts/RestTimerContext';
+import { RestSignalDebug } from './RestSignalDebug';
 import {
   REST_MAX,
   REST_MIN,
@@ -34,6 +35,8 @@ const cardClass = (selected: boolean) =>
 
 export function RestTimerSettings() {
   const { settings, updateSettings } = useRestTimer();
+  // Reines Lesen der URL, kein State — die Ansicht wechselt nur beim Seitenaufruf.
+  const debug = new URLSearchParams(window.location.search).has('debug');
   const stepDisabled = 'disabled:opacity-40 disabled:active:scale-100';
 
   return (
@@ -124,6 +127,10 @@ export function RestTimerSettings() {
           </div>
         </>
       )}
+
+      {/* Vorübergehende Diagnose für den gelegentlich ausbleibenden Ton (2026-08-19).
+          Nur mit ?debug=1 sichtbar, damit sie im Alltag nicht stört. */}
+      {debug && <RestSignalDebug />}
     </div>
   );
 }

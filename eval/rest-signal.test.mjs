@@ -75,9 +75,32 @@ Object.defineProperty(globalThis, 'navigator', {
   value: { audioSession, vibrate: (p) => { vibrations.push(p); return true; } },
   configurable: true, writable: true,
 });
-globalThis.window = { AudioContext: FakeAudioContext };
+// Minimaler localStorage — die Diagnose schreibt dorthin.
+const store = new Map();
+globalThis.window = {
+  AudioContext: FakeAudioContext,
+  localStorage: {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+  },
+};
 
-const { primeAudio, fireSignal } = await import(URL_);
+const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(URL_);
+
+// ── A0: Ohne freigeschaltetes Audio bleibt der Ton aus — und das wird vermerkt ──
+// Genau dieser Fall tritt nach einem Reload mitten in der Pause auf. Ohne Aufzeichnung
+// wäre später nicht unterscheidbar, ob der Ton fehlte oder nur überhört wurde.
+{
+  fireSignal('tone');
+  const log = readSignalLog();
+  check('A0 Versuch protokolliert', log.length === 1, log.length);
+  check('A0 als no-context erkannt', log[0]?.outcome === 'no-context', log[0]);
+  check('A0 Zustand none vermerkt', log[0]?.stateBefore === 'none', log[0]);
+  check('A0 kein Ton', tones.length === 0, tones);
+  clearSignalLog();
+  check('A0 Leeren wirkt', readSignalLog().length === 0, readSignalLog());
+}
 
 // ── A: Freischalten startet den Kontext und sonst nichts ────────────────────────
 {
@@ -97,20 +120,30 @@ const { primeAudio, fireSignal } = await import(URL_);
 
 // ── C: Signal „tone" spielt den Zweiklang ──────────────────────────────────────
 {
+  const vibBefore = vibrations.length;
   fireSignal('tone');
   check('C zwei Töne', tones.length === 2, tones);
   check('C steigende Tonfolge', tones[0].freq < tones[1].freq, tones.map((t) => t.freq));
   check('C zweiter Ton später', tones[1].at > tones[0].at, tones.map((t) => t.at));
   check('C liegt in der Zukunft', tones[0].at > lastContext.currentTime, tones[0].at);
-  check('C vibriert (auf iOS wirkungslos)', vibrations.length === 1, vibrations);
+  check('C vibriert (auf iOS wirkungslos)', vibrations.length === vibBefore + 1, vibrations.length);
+}
+
+// ── C2: Erfolgreiches Signal wird als 'played' vermerkt ────────────────────────
+{
+  const log = readSignalLog();
+  const last = log[log.length - 1];
+  check('C2 als played vermerkt', last?.outcome === 'played', last);
+  check('C2 direkter Weg', last?.path === 'direct', last);
+  check('C2 Zeit seit Freischalten erfasst', typeof last?.sincePrime === 'number', last);
 }
 
 // ── D: Signal „silent" spielt nichts, vibriert aber ────────────────────────────
 {
-  const before = tones.length;
+  const before = tones.length, vibBefore = vibrations.length;
   fireSignal('silent');
   check('D kein Ton', tones.length === before, tones.length);
-  check('D trotzdem Vibration', vibrations.length === 2, vibrations);
+  check('D trotzdem Vibration', vibrations.length === vibBefore + 1, vibrations.length);
 }
 
 // ── E: DIE Kernregel — die Audio-Session wird nirgends angefasst ────────────────
@@ -130,6 +163,15 @@ const { primeAudio, fireSignal } = await import(URL_);
   check('F resume wurde aufgerufen', resumeCalls === resumesBefore + 1, resumeCalls);
   check('F Ton kam trotzdem', tones.length === before + 2, tones.length);
   check('F Kontext läuft wieder', lastContext.state === 'running', lastContext.state);
+}
+
+// ── F2: Der Umweg über resume wird protokolliert ───────────────────────────────
+// Damit lässt sich im Feld unterscheiden, ob der Kontext lief oder erst geweckt wurde.
+{
+  const log = readSignalLog();
+  const last = log[log.length - 1];
+  check('F2 resume-Weg vermerkt', last?.path === 'resume', last);
+  check('F2 Zustand vorher festgehalten', last?.stateBefore === 'interrupted', last);
 }
 
 // ── G: Läuft der Kontext bereits, wird nicht unnötig neu gestartet ─────────────

@@ -27,7 +27,8 @@ import type { RestSignalMode } from '../utils/restTimer';
 /**
  * Spitzenpegel des Tons. Muss die laufende Musik durchdringen, ohne im Ohr wehzutun.
  * Am Gerät gegen Musik im Kopfhörer verglichen (2026-08-09): 0.15 und 0.35 gingen unter,
- * 0.6 war gut hörbar. Nicht ohne erneuten Hörtest ändern.
+ * 0.6 war gut hörbar, im Studio als „nicht aufdringlich, trotzdem wahrnehmbar“ bestätigt.
+ * Nicht ohne erneuten Hörtest ändern.
  */
 const PEAK = 0.6;
 /** Zweiklang: erst tiefer, dann höher — steigend wird als „fertig“ gelesen, nicht als Fehler. */
@@ -37,6 +38,65 @@ const TONES: { freq: number; at: number; duration: number }[] = [
 ];
 
 let ctx: AudioContext | null = null;
+let lastPrimeAt = 0;
+
+// ── Diagnose ──────────────────────────────────────────────────────────────────
+// Im Studio bleibt der Ton gelegentlich aus, obwohl die App im Vordergrund ist
+// (2026-08-19 gemeldet). Der Moment lässt sich nicht abpassen, deshalb schreibt jeder
+// Signalversuch mit, in welchem Zustand der Kontext war. Reine Beobachtung, kein
+// Eingriff ins Verhalten — sichtbar im Profil über ?debug=1.
+
+const LOG_KEY = 'trainingsapp.restSignalLog';
+const LOG_LIMIT = 30;
+
+export interface SignalAttempt {
+  /** Zeitpunkt des Versuchs (epoch ms). */
+  t: number;
+  mode: RestSignalMode;
+  /** Zustand des AudioContext vor dem Versuch, 'none' wenn keiner existiert. */
+  stateBefore: string;
+  /** Sekunden seit dem letzten Freischalten — also seit dem Abhaken des Satzes. */
+  sincePrime: number;
+  /** Direkt abgespielt oder erst hochgefahren? */
+  path: 'direct' | 'resume' | 'none';
+  outcome: 'played' | 'resume-rejected' | 'error' | 'no-context' | 'silent';
+  stateAfter?: string;
+  error?: string;
+}
+
+function readLog(): SignalAttempt[] {
+  try {
+    const raw = window.localStorage.getItem(LOG_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as SignalAttempt[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function record(entry: SignalAttempt): void {
+  try {
+    const log = readLog();
+    log.push(entry);
+    window.localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-LOG_LIMIT)));
+  } catch {
+    // Diagnose darf niemals das Signal verhindern.
+  }
+}
+
+/** Die letzten Signalversuche, neueste zuletzt. Für die Debug-Ansicht im Profil. */
+export function readSignalLog(): SignalAttempt[] {
+  return readLog();
+}
+
+/** Aufzeichnung verwerfen (Debug-Ansicht). */
+export function clearSignalLog(): void {
+  try {
+    window.localStorage.removeItem(LOG_KEY);
+  } catch {
+    // egal
+  }
+}
 
 /**
  * Schaltet Audio frei.
@@ -53,6 +113,7 @@ export function primeAudio(): void {
       if (!Ctor) return;
       ctx = new Ctor();
     }
+    lastPrimeAt = Date.now();
     if (ctx.state !== 'running') void ctx.resume();
   } catch {
     ctx = null;
@@ -86,15 +147,35 @@ export function fireSignal(mode: RestSignalMode): void {
     // manche Browser werfen bei blockierter Vibration
   }
 
-  if (mode === 'silent' || !ctx) return;
+  const now = Date.now();
+  const sincePrime = lastPrimeAt ? Math.round((now - lastPrimeAt) / 1000) : -1;
+  const base: Omit<SignalAttempt, 'path' | 'outcome'> = {
+    t: now,
+    mode,
+    stateBefore: ctx ? ctx.state : 'none',
+    sincePrime,
+  };
+
+  if (mode === 'silent') {
+    record({ ...base, path: 'none', outcome: 'silent' });
+    return;
+  }
+  if (!ctx) {
+    record({ ...base, path: 'none', outcome: 'no-context' });
+    return;
+  }
   const audio = ctx;
 
-  const play = () => {
+  const play = (path: 'direct' | 'resume') => {
     try {
-      const base = audio.currentTime;
-      for (const t of TONES) playTone(audio, base + t.at, t.freq, t.duration);
-    } catch {
-      // Ohne Ton bleibt das sichtbare Signal — der Timer ist deshalb nicht kaputt.
+      const start = audio.currentTime;
+      for (const t of TONES) playTone(audio, start + t.at, t.freq, t.duration);
+      record({ ...base, path, outcome: 'played', stateAfter: audio.state });
+    } catch (error) {
+      record({
+        ...base, path, outcome: 'error', stateAfter: audio.state,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -102,9 +183,21 @@ export function fireSignal(mode: RestSignalMode): void {
   // unterbricht iOS den Kontext regelmäßig, sobald die Musik-App den Audio-Fokus hält —
   // ein Start darauf erzeugt keinen hörbaren Ton. Deshalb erst hochfahren.
   try {
-    if (audio.state === 'running') play();
-    else void audio.resume().then(play, () => { /* nicht erlaubt → nur sichtbares Signal */ });
-  } catch {
-    // s.o.
+    if (audio.state === 'running') {
+      play('direct');
+    } else {
+      void audio.resume().then(
+        () => play('resume'),
+        (error: unknown) => record({
+          ...base, path: 'resume', outcome: 'resume-rejected', stateAfter: audio.state,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  } catch (error) {
+    record({
+      ...base, path: 'none', outcome: 'error', stateAfter: audio.state,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
