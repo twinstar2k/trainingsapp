@@ -92,31 +92,23 @@ Object.defineProperty(globalThis, 'navigator', {
   value: { audioSession, vibrate: (p) => { vibrations.push(p); return true; } },
   configurable: true, writable: true,
 });
-// Minimaler localStorage — die Diagnose schreibt dorthin.
-const store = new Map();
-globalThis.window = {
-  AudioContext: FakeAudioContext,
-  localStorage: {
-    getItem: (k) => (store.has(k) ? store.get(k) : null),
-    setItem: (k, v) => { store.set(k, String(v)); },
-    removeItem: (k) => { store.delete(k); },
-  },
-};
+globalThis.window = { AudioContext: FakeAudioContext };
 
-const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(URL_);
+const { primeAudio, fireSignal } = await import(URL_);
 
-// ── A0: Ohne freigeschaltetes Audio bleibt der Ton aus — und das wird vermerkt ──
-// Genau dieser Fall tritt nach einem Reload mitten in der Pause auf. Ohne Aufzeichnung
-// wäre später nicht unterscheidbar, ob der Ton fehlte oder nur überhört wurde.
+// Ergebnis des jeweils letzten Signalversuchs — einige Blöcke prüfen das Verhalten und
+// den gemeldeten Weg getrennt voneinander.
+let lastAttempt;
+
+// ── A0: Ohne freigeschaltetes Audio bleibt der Ton aus — und das meldet die Funktion ──
+// Genau dieser Fall tritt nach einem Reload mitten in der Pause auf. Ohne die Rückmeldung
+// wäre nicht unterscheidbar, ob der Ton fehlte oder nur überhört wurde.
 {
-  await fireSignal('tone');
-  const log = readSignalLog();
-  check('A0 Versuch protokolliert', log.length === 1, log.length);
-  check('A0 als no-context erkannt', log[0]?.outcome === 'no-context', log[0]);
-  check('A0 Zustand none vermerkt', log[0]?.stateBefore === 'none', log[0]);
+  const last = await fireSignal('tone');
+  check('A0 Ergebnis gemeldet', !!last, last);
+  check('A0 als no-context erkannt', last?.outcome === 'no-context', last);
+  check('A0 Zustand none vermerkt', last?.stateBefore === 'none', last);
   check('A0 kein Ton', tones.length === 0, tones);
-  clearSignalLog();
-  check('A0 Leeren wirkt', readSignalLog().length === 0, readSignalLog());
 }
 
 // ── A: Freischalten startet den Kontext und sonst nichts ────────────────────────
@@ -138,7 +130,7 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
 // ── C: Signal „tone" spielt den Zweiklang ──────────────────────────────────────
 {
   const vibBefore = vibrations.length;
-  await fireSignal('tone');
+  lastAttempt = await fireSignal('tone');
   check('C zwei Töne', tones.length === 2, tones);
   check('C steigende Tonfolge', tones[0].freq < tones[1].freq, tones.map((t) => t.freq));
   check('C zweiter Ton später', tones[1].at > tones[0].at, tones.map((t) => t.at));
@@ -146,10 +138,9 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
   check('C vibriert (auf iOS wirkungslos)', vibrations.length === vibBefore + 1, vibrations.length);
 }
 
-// ── C2: Erfolgreiches Signal wird als 'played' vermerkt ────────────────────────
+// ── C2: Erfolgreiches Signal wird als 'played' gemeldet ───────────────────────
 {
-  const log = readSignalLog();
-  const last = log[log.length - 1];
+  const last = lastAttempt;
   check('C2 als played vermerkt', last?.outcome === 'played', last);
   check('C2 direkter Weg', last?.path === 'direct', last);
   check('C2 Zeit seit Freischalten erfasst', typeof last?.sincePrime === 'number', last);
@@ -175,17 +166,16 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
 {
   const before = tones.length, resumesBefore = resumeCalls;
   lastContext.state = 'interrupted';   // iOS hat den Kontext kassiert
-  await fireSignal('tone');
+  lastAttempt = await fireSignal('tone');
   check('F resume wurde aufgerufen', resumeCalls === resumesBefore + 1, resumeCalls);
   check('F Ton kam trotzdem', tones.length === before + 2, tones.length);
   check('F Kontext läuft wieder', lastContext.state === 'running', lastContext.state);
 }
 
-// ── F2: Der Umweg über resume wird protokolliert ───────────────────────────────
-// Damit lässt sich im Feld unterscheiden, ob der Kontext lief oder erst geweckt wurde.
+// ── F2: Der Umweg über resume wird gemeldet ───────────────────────────────────
+// Damit lässt sich unterscheiden, ob der Kontext lief oder erst geweckt wurde.
 {
-  const log = readSignalLog();
-  const last = log[log.length - 1];
+  const last = lastAttempt;
   check('F2 resume-Weg vermerkt', last?.path === 'resume', last);
   check('F2 Zustand vorher festgehalten', last?.stateBefore === 'interrupted', last);
 }
@@ -209,13 +199,11 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
     configurable: true, writable: true,
   });
   primeAudio();
-  clearSignalLog();
   // I1: gesunder Kontext — unverändertes Verhalten, Clock-Befund vermerkt
   {
     const before = tones.length, suspendsBefore = suspendCalls, contexts = contextCount;
     lastContext.state = 'running';
-    await fireSignal('tone');
-    const last = readSignalLog().at(-1);
+    const last = await fireSignal('tone');
     check('I1 Ton gespielt', tones.length === before + 2, tones.length);
     check('I1 direkter Weg', last?.path === 'direct', last);
     check('I1 Clock lief', last?.clockBefore === 'advancing', last);
@@ -228,8 +216,7 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
     lastContext.state = 'running';
     lastContext.clockRunning = false;
     kickRevives = true;
-    await fireSignal('tone');
-    const last = readSignalLog().at(-1);
+    const last = await fireSignal('tone');
     check('I2 Clock stand erkannt', last?.clockBefore === 'stalled', last);
     check('I2 genau ein suspend', suspendCalls === suspendsBefore + 1, suspendCalls);
     check('I2 Ton nach Kick', tones.length === before + 2, tones.length);
@@ -243,9 +230,8 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
     lastContext.state = 'running';
     lastContext.clockRunning = false;
     kickRevives = false;
-    await fireSignal('tone');
+    const last = await fireSignal('tone');
     kickRevives = true;
-    const last = readSignalLog().at(-1);
     check('I3 alter Kontext geschlossen', closeCalls === closesBefore + 1 && old.state === 'closed', old.state);
     check('I3 neuer Kontext', contextCount === contexts + 1 && lastContext !== old, contextCount);
     check('I3 Ton aus neuem Kontext', tones.length === before + 2, tones.length);
@@ -259,10 +245,10 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
     kickRevives = false;
     newContextsStalled = true;
     let threw = false;
-    try { await fireSignal('tone'); } catch { threw = true; }
+    let last;
+    try { last = await fireSignal('tone'); } catch { threw = true; }
     kickRevives = true;
     newContextsStalled = false;
-    const last = readSignalLog().at(-1);
     check('I4 kein Wurf', !threw, threw);
     check('I4 kein Ton', tones.length === before, tones.length);
     check('I4 als stalled vermerkt', last?.outcome === 'stalled', last);

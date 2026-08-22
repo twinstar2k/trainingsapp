@@ -51,14 +51,12 @@ let lastPrimeAt = 0;
  */
 const CLOCK_PROBE_MS = 60;
 
-// ── Diagnose ──────────────────────────────────────────────────────────────────
-// Im Studio bleibt der Ton gelegentlich aus, obwohl die App im Vordergrund ist
-// (2026-08-19 gemeldet). Der Moment lässt sich nicht abpassen, deshalb schreibt jeder
-// Signalversuch mit, in welchem Zustand der Kontext war. Reine Beobachtung, kein
-// Eingriff ins Verhalten — sichtbar im Profil über ?debug=1.
-
-const LOG_KEY = 'trainingsapp.restSignalLog';
-const LOG_LIMIT = 30;
+// ── Ergebnis eines Signalversuchs ─────────────────────────────────────────────
+// `fireSignal` gibt zurück, was passiert ist. Der Aufrufer wertet das nicht aus — die
+// Rückgabe existiert, damit eval/rest-signal.test.mjs prüfen kann, WELCHEN Weg die
+// Funktion genommen hat (direkt, resume, kick, recreate). Ohne diese Beobachtung ließe
+// sich der Ton-Fix von 2026-08-22 nicht absichern; die Wege sind am Gerät erarbeitet und
+// dürfen nicht stillschweigend zurückgebaut werden (siehe CLAUDE.md).
 
 export interface SignalAttempt {
   /** Zeitpunkt des Versuchs (epoch ms). */
@@ -78,40 +76,6 @@ export interface SignalAttempt {
   clockBefore?: 'advancing' | 'stalled';
   stateAfter?: string;
   error?: string;
-}
-
-function readLog(): SignalAttempt[] {
-  try {
-    const raw = window.localStorage.getItem(LOG_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as SignalAttempt[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function record(entry: SignalAttempt): void {
-  try {
-    const log = readLog();
-    log.push(entry);
-    window.localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-LOG_LIMIT)));
-  } catch {
-    // Diagnose darf niemals das Signal verhindern.
-  }
-}
-
-/** Die letzten Signalversuche, neueste zuletzt. Für die Debug-Ansicht im Profil. */
-export function readSignalLog(): SignalAttempt[] {
-  return readLog();
-}
-
-/** Aufzeichnung verwerfen (Debug-Ansicht). */
-export function clearSignalLog(): void {
-  try {
-    window.localStorage.removeItem(LOG_KEY);
-  } catch {
-    // egal
-  }
 }
 
 /**
@@ -167,10 +131,10 @@ async function clockAdvances(audio: AudioContext): Promise<boolean> {
  * Vibration läuft immer mit — auf Android ein zweiter Kanal, auf iOS nicht vorhanden
  * (am Gerät bestätigt: `navigator.vibrate` fehlt dort).
  *
- * Der Aufrufer wartet nicht auf das Ergebnis; die Funktion wirft nie, sondern
- * protokolliert jeden Ausgang (siehe Diagnose oben).
+ * Der Aufrufer wartet nicht auf das Ergebnis; die Funktion wirft nie, sondern meldet
+ * jeden Ausgang über den Rückgabewert (siehe SignalAttempt oben).
  */
-export async function fireSignal(mode: RestSignalMode): Promise<void> {
+export async function fireSignal(mode: RestSignalMode): Promise<SignalAttempt> {
   try {
     navigator.vibrate?.([200, 100, 200]);
   } catch {
@@ -187,12 +151,10 @@ export async function fireSignal(mode: RestSignalMode): Promise<void> {
   };
 
   if (mode === 'silent') {
-    record({ ...base, path: 'none', outcome: 'silent' });
-    return;
+    return { ...base, path: 'none', outcome: 'silent' };
   }
   if (!ctx) {
-    record({ ...base, path: 'none', outcome: 'no-context' });
-    return;
+    return { ...base, path: 'none', outcome: 'no-context' };
   }
 
   let audio = ctx;
@@ -206,11 +168,10 @@ export async function fireSignal(mode: RestSignalMode): Promise<void> {
       try {
         await audio.resume();
       } catch (error) {
-        record({
+        return {
           ...base, path, outcome: 'resume-rejected', stateAfter: audio.state,
           error: error instanceof Error ? error.message : String(error),
-        });
-        return;
+        };
       }
     }
 
@@ -231,8 +192,7 @@ export async function fireSignal(mode: RestSignalMode): Promise<void> {
         ctx = null;
         const fresh = createContext();
         if (!fresh) {
-          record({ ...base, path: 'recreate', outcome: 'stalled', stateAfter: 'closed' });
-          return;
+          return { ...base, path: 'recreate', outcome: 'stalled', stateAfter: 'closed' };
         }
         ctx = fresh;
         audio = fresh;
@@ -240,19 +200,18 @@ export async function fireSignal(mode: RestSignalMode): Promise<void> {
         if (await clockAdvances(audio)) {
           path = 'recreate';
         } else {
-          record({ ...base, path: 'recreate', outcome: 'stalled', stateAfter: audio.state });
-          return;
+          return { ...base, path: 'recreate', outcome: 'stalled', stateAfter: audio.state };
         }
       }
     }
 
     const start = audio.currentTime;
     for (const t of TONES) playTone(audio, start + t.at, t.freq, t.duration);
-    record({ ...base, path, outcome: 'played', stateAfter: audio.state });
+    return { ...base, path, outcome: 'played', stateAfter: audio.state };
   } catch (error) {
-    record({
+    return {
       ...base, path, outcome: 'error', stateAfter: audio.state,
       error: error instanceof Error ? error.message : String(error),
-    });
+    };
   }
 }
