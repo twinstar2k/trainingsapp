@@ -50,6 +50,7 @@ trainingsapp/
 │   │   ├── layout/AppLayout.tsx       ← Bottom Navigation
 │   │   ├── training/                  ← Bausteine der Trainings-Seite (ExerciseCard, SetRow, ExerciseCatalogModal)
 │   │   ├── ui/ConfirmDialog.tsx       ← + PromptDialog.tsx (Name-Eingabe, z.B. Vorlage benennen)
+│   │   ├── ui/SettingsPage.tsx        ← + SettingsGroup/SettingsRow: Bausteine der Profil-Unterseiten
 │   │   └── LastSessionLabel.tsx       ← "Zuletzt: 3×10@50kg"-Label
 │   ├── contexts/AuthContext.tsx       ← Google Auth (signInWithPopup)
 │   ├── hooks/
@@ -57,7 +58,9 @@ trainingsapp/
 │   │   ├── useExerciseReference.ts    ← Zuletzt-Label + Bestleistung einer Übung (ein Query-Durchlauf)
 │   │   ├── useRecommendation.ts       ← Callable getTrainingRecommendation aufrufen
 │   │   ├── useTrainingSession.ts      ← Daten + alle Firestore-Mutationen eines Trainings
-│   │   └── useTemplates.ts            ← CRUD der Trainings-Vorlagen (users/{uid}/templates)
+│   │   ├── useTemplates.ts            ← CRUD der Trainings-Vorlagen (users/{uid}/templates)
+│   │   ├── useStudios.ts              ← CRUD der Studios (users/{uid}/studios)
+│   │   └── useUserSettings.ts         ← Einstellungen auf users/{uid} ohne eigenen Context (heute: trainingGoal)
 │   ├── lib/
 │   │   ├── firebase.ts                ← Firebase-Initialisierung
 │   │   ├── seed.ts                    ← Übungskatalog-Seed
@@ -72,7 +75,8 @@ trainingsapp/
 │   │   ├── Exercises.tsx
 │   │   ├── Weight.tsx
 │   │   ├── Templates.tsx              ← Vorlagen-Verwaltung (anlegen/ordnen/löschen)
-│   │   └── Profile.tsx
+│   │   ├── Profile.tsx                ← Einstellungs-Hub (kurze Übersicht, verlinkt auf profile/*)
+│   │   └── profile/                   ← Unterseiten: RestTimerPage, CoachPage, StudiosPage, DataPage
 │   ├── components/ai/                 ← RecommendationDialog + Preview (KI-Empfehlung)
 │   ├── types/index.ts                 ← Alle TS-Typen (re-exportiert shared/ai-types)
 │   ├── utils/metrics.ts               ← Epley 1RM, Volumen, Label-Formatierung
@@ -115,7 +119,8 @@ trainingsapp/
 - **Gruppierte Listen:** Trainings-Seite nach Monat (neuester Monat + Monate mit aktivem Training starten offen), Übungskatalog und Übungsauswahl-Modal nach Muskelgruppe (alle zu, Suche öffnet Treffer-Gruppen). Wiederverwendbare Sektion `src/components/ui/CollapsibleSection.tsx`, Gruppier-Utility `src/utils/groupExercises.ts`.
 - **Aktives-Training-Banner:** Antippbare Pille über der Bottom-Nav führt von jeder Seite mit einem Klick zurück ins laufende Training (versteckt auf dessen eigener Detailseite; ohne aktives Training unsichtbar). Echtzeit via `onSnapshot` — Hook `src/hooks/useActiveTraining.ts`, Komponente `src/components/layout/ActiveTrainingBanner.tsx`.
 - **Pausen-Timer:** Abhaken eines Satzes startet die Satzpause (Modus im Profil: automatisch / nur manuell / aus). Leiste über der Bottom-Nav mit Countdown, Fortschrittsbalken und ±30 s; Dauer 0:30–10:00 in 30-s-Schritten. Signal am Ende: kurzer Zweiklang über Web Audio (läuft über die Kopfhörer, stört im Studio niemanden) oder nur visuell. Zustand liegt im `RestTimerContext` **oberhalb des Routers** — die Pause überlebt Seitenwechsel und Reload (`localStorage`), die Leiste erscheint aber nur im Training. Einstellungen auf `users/{uid}`: `restTimerMode`, `restSeconds`, `restSignal`. Konzept + Gerätemessungen: `docs/superpowers/specs/2026-08-09-pausen-timer-design.md`.
-- **Daten-Export:** Button im Profil → JSON-Dump aller Userdaten (`src/lib/export.ts`)
+- **Profil als Einstellungs-Hub:** `/profile` ist nur noch Einstieg — Profilkarte plus kurze Gruppen aus Listenzeilen, jede mit dem **aktuellen Wert** als Vorschau („1:30, automatisch", „2 Studios"). Die Themen liegen auf eigenen Seiten: `/profile/rest-timer`, `/profile/coach`, `/profile/studios`, `/profile/data` (Export + Transparenz-Block + Admin-Seed) sowie das bestehende `/templates`. Bausteine: `SettingsPage` (Zurück-Header), `SettingsGroup` (Label + Karte), `SettingsRow` (Zeile) — **eine neue Einstellung ist eine `SettingsRow`, kein neuer Block**. Konzept: `docs/superpowers/specs/2026-08-22-profil-struktur-design.md`.
+- **Daten-Export:** Button unter Profil → Daten & Datenschutz → JSON-Dump aller Userdaten (`src/lib/export.ts`)
 - **Profil-Personalisierung (bewusst ohne Datensammlung):** Profilkopf zeigt Google-Foto + Name; optionaler Spitzname (`users/{uid}.nickname`, kein Rules-Change nötig) überschreibt den Google-Vornamen — aufgelöst als `useAuth().firstName`, genutzt auch von der Dashboard-Begrüßung. Ausklappbarer Transparenz-Block im Profil erklärt, warum es kein Alter/Geschlechts-Feld gibt (Coach nutzt die individuelle Historie statt demografischer Durchschnitte; DSGVO-Datenminimierung). Fachliche Begründung: `docs/superpowers/specs/2026-07-19-profil-personalisierung-design.md`. Der Name geht **nicht** an die KI-Function.
 
 ## Agenten-Workflow
@@ -165,6 +170,7 @@ Dann: [Aufgabe beschreiben]
 - **„20 Sessions" heißt 20 Einheiten DIESER Übung — nicht 20 Trainings:** Die Suche läuft rückwärts durch die abgeschlossenen Trainings, bis 20 Treffer beisammen sind (`shared/session-scan.ts`, `collectExerciseSessions`). Sie darf **nicht** auf „die letzten 20 Trainings durchsuchen" zurückgebaut werden: Bei rotierenden Übungen (Split, Cardio) fällt die Historie sonst komplett aus dem Fenster — 2026-08 hatten dadurch 12 von 32 Übungen keinen Verlauf mehr (u. a. „Indoor Cycle": 6 Einheiten vorhanden, 1 sichtbar → „Noch zu wenig Daten"). Betrifft alle drei Nutzer der Historie: Verlaufschart (`useExerciseProgress`), Zuletzt-Label + Live-Progressbalken (`useExerciseReference`) und den KI-Coach (`functions/src/index.ts`, `fetchSessions`). Gedeckelt ist nur die Zahl der durchsuchten Trainings (`MAX_TRAININGS_SCANNED = 300`, ~2 Jahre Historie), weil jedes Training eine eigene Subcollection-Query kostet.
 - **Pausen-Timer: `navigator.audioSession` NICHT anfassen.** Das Signal am Pausenende ist bewusst ein Ton über Web Audio und kein Eingriff in die laufende Musik. Am iPhone gemessen (iOS 26.5, Safari + Chrome, 2026-08-09): `audioSession.type = 'ambient'` allein ist harmlos, ein `AudioContext` allein auch — **beides zusammen stoppt in Chrome für iOS sofort die Musik**, weil eine explizit gesetzte Kategorie `auto` verlässt und dort exklusiv wirkt. `transient-solo` setzt die Musik nie von allein fort, und die API gibt es laut MDN ohnehin nur in WebKit (auf Android/Desktop täte die Einstellung stumm nichts). Bewacht von `eval/rest-signal.test.mjs`. Zusätzlich: iOS unterbricht den `AudioContext`, während die Musik-App den Fokus hält — `fireSignal` muss ihn vor dem Abspielen hochfahren, sonst kommt der Ton „mal ja, mal nein". **Und `state === 'running'` ist kein Beleg** (gemessen 2026-08-22): Nach einem App-Wechsel steht die Render-Clock bei unverändertem `state`, der Ton bleibt in der Queue und wird erst beim nächsten `resume()` nachgeliefert. `fireSignal` prüft deshalb per Clock-Probe, ob `currentTime` vorankommt, und tritt den Kontext sonst an (suspend+resume, notfalls neu anlegen). Nicht auf einen reinen `state`-Check zurückbauen.
 - **Pausen-Timer ist ein Vordergrund-Timer.** Eine Webseite lässt sich auf iOS im Hintergrund nicht am Leben halten: weder ein stiller Web-Audio-Loop noch ein stilles `<audio>`-Element verhindern das Einfrieren (gemessen 24 s Stillstand). Deshalb ist der Wake Lock keine Bequemlichkeit, sondern tragend. Die Restzeit wird aus dem Zielzeitstempel gerechnet und **nie heruntergezählt** — nur so stimmt sie nach Einfrieren oder Reload sofort wieder. Beim Wechsel in eine andere App kommt das Signal verspätet; die Leiste zeigt dann „vor X abgelaufen". Nicht erneut versuchen, das zu umgehen — Details in `docs/superpowers/specs/2026-08-09-pausen-timer-design.md`.
+- **`users/{uid}` hat drei Schreiber — immer `merge: true`:** `nickname` gehört dem `AuthContext`, `restTimerMode/restSeconds/restSignal` dem `RestTimerContext`, alles Übrige (heute `trainingGoal`) dem Hook `src/hooks/useUserSettings.ts`. Das geht nur gut, weil alle drei disjunkte Felder anfassen und ausschließlich mit `setDoc(..., { merge: true })` schreiben — ein volles `setDoc` löscht die Felder der anderen. Wer ein Feld ergänzt, ordnet es zuerst einem der drei zu.
 - **1RM (Epley):** `weight × (1 + reps / 30)`, nur gültig für reps ≤ 15
 - **Standard-Metrik:** Max-Gewicht (nicht 1RM)
 - **Templates sind flexibel:** Übungen dürfen abweichen, kein starres Korsett
