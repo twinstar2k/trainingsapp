@@ -15,6 +15,14 @@ const OUTCOME_TEXT: Record<SignalAttempt['outcome'], string> = {
   error: 'Fehler — KEIN TON',
   'no-context': 'kein Audio freigeschaltet — KEIN TON',
   silent: 'Modus „nur visuell“',
+  stalled: 'Clock stand, nichts half — KEIN TON',
+};
+
+/** Ergebnis der Clock-Probe (2026-08-22): `state` allein ist kein Beleg. */
+const PATH_TEXT: Partial<Record<SignalAttempt['path'], string>> = {
+  resume: 'musste hochgefahren werden',
+  kick: 'Clock stand → mit suspend+resume angetreten',
+  recreate: 'Clock stand → Kontext neu angelegt',
 };
 
 function formatEntry(a: SignalAttempt): string {
@@ -24,7 +32,8 @@ function formatEntry(a: SignalAttempt): string {
     OUTCOME_TEXT[a.outcome] ?? a.outcome,
     `Kontext vorher: ${a.stateBefore}`,
     a.stateAfter && a.stateAfter !== a.stateBefore ? `nachher: ${a.stateAfter}` : null,
-    a.path === 'resume' ? 'musste hochgefahren werden' : null,
+    a.clockBefore === 'advancing' ? 'Clock lief' : null,
+    PATH_TEXT[a.path] ?? null,
     a.sincePrime >= 0 ? `${a.sincePrime}s nach dem Abhaken` : null,
     a.error ? `(${a.error})` : null,
   ];

@@ -80,6 +80,18 @@ während die Musik-App den Audio-Fokus hält. Zwischen Freischalten und Ablauf l
 und ein Start auf einem unterbrochenen Kontext erzeugt keinen Ton — das Signal kam „mal ja,
 mal nein“. `fireSignal` fährt den Kontext deshalb erst hoch.
 
+**5. `state === 'running'` ist kein Beleg dafür, dass ein Ton auch rauskommt** (Studio-Test
+2026-08-22, Preview-Channel, Chrome/Safari iOS). Das Diagnoseprotokoll zeigte 14 Einträge
+„played · running“, tatsächlich blieb der Ton mehrfach aus — immer nach einem Wechsel zur
+Musik-App und zurück, nie beim Verbleib in der App. Der Beweis: Beim nächsten Abhaken
+(`primeAudio` → `resume()`) wurde der fehlende Ton **nachgeliefert**. iOS hält also den
+Render-Thread an, lässt `state` aber auf `running`; die geplanten Oszillatoren warten in
+einer stehenden Queue. Ob iOS die Unterbrechung stattdessen ehrlich als `interrupted` meldet,
+ist nicht vorhersagbar — daher „nicht reproduzierbar“. Einzige Wahrheit ist, ob
+`currentTime` vorankommt. `fireSignal` macht deshalb vor dem Ton eine **Clock-Probe**
+(60 ms): steht die Clock, erst `suspend()`+`resume()` („kick“), hilft das nicht, Kontext
+schließen und neu anlegen („recreate“). Der Pfad steht im Protokoll (`clockBefore`, `path`).
+
 ## Bekannte Grenzen
 
 - **App-Wechsel:** Die Restzeit stimmt bei der Rückkehr (sie wird aus dem Zielzeitstempel

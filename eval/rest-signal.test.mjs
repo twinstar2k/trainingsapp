@@ -34,18 +34,35 @@ function check(label, cond, got) {
 const sessionWrites = [];   // jede Zuweisung an audioSession.type — muss leer bleiben
 const tones = [];           // jeder tatsächlich gestartete Oszillator
 const vibrations = [];
-let resumeCalls = 0, contextCount = 0, lastContext = null;
+let resumeCalls = 0, suspendCalls = 0, closeCalls = 0, contextCount = 0, lastContext = null;
+// Steuert die Attrappe: Läuft der Render-Thread neuer Kontexte? Hilft suspend+resume?
+// Am Gerät (2026-08-22) blieb `state` auf 'running', während `currentTime` stand.
+let newContextsStalled = false;
+let kickRevives = true;
 
 class FakeAudioContext {
   constructor() {
     contextCount++;
     this.state = 'suspended';
     this.sampleRate = 48000;
-    this.currentTime = 100;
     this.destination = {};
+    this._base = 100;
+    this._since = Date.now();
+    this.clockRunning = !newContextsStalled;
     lastContext = this;
   }
-  resume() { resumeCalls++; this.state = 'running'; return Promise.resolve(); }
+  /** Wie im Browser: nur eine laufende Render-Clock kommt voran. */
+  get currentTime() {
+    return this.clockRunning ? this._base + (Date.now() - this._since) / 1000 : this._base;
+  }
+  resume() {
+    resumeCalls++;
+    this.state = 'running';
+    if (kickRevives && !this.clockRunning) { this.clockRunning = true; this._since = Date.now(); }
+    return Promise.resolve();
+  }
+  suspend() { suspendCalls++; this.state = 'suspended'; return Promise.resolve(); }
+  close() { closeCalls++; this.state = 'closed'; return Promise.resolve(); }
   createGain() {
     return {
       gain: {
@@ -92,7 +109,7 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
 // Genau dieser Fall tritt nach einem Reload mitten in der Pause auf. Ohne Aufzeichnung
 // wäre später nicht unterscheidbar, ob der Ton fehlte oder nur überhört wurde.
 {
-  fireSignal('tone');
+  await fireSignal('tone');
   const log = readSignalLog();
   check('A0 Versuch protokolliert', log.length === 1, log.length);
   check('A0 als no-context erkannt', log[0]?.outcome === 'no-context', log[0]);
@@ -121,7 +138,7 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
 // ── C: Signal „tone" spielt den Zweiklang ──────────────────────────────────────
 {
   const vibBefore = vibrations.length;
-  fireSignal('tone');
+  await fireSignal('tone');
   check('C zwei Töne', tones.length === 2, tones);
   check('C steigende Tonfolge', tones[0].freq < tones[1].freq, tones.map((t) => t.freq));
   check('C zweiter Ton später', tones[1].at > tones[0].at, tones.map((t) => t.at));
@@ -141,7 +158,7 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
 // ── D: Signal „silent" spielt nichts, vibriert aber ────────────────────────────
 {
   const before = tones.length, vibBefore = vibrations.length;
-  fireSignal('silent');
+  await fireSignal('silent');
   check('D kein Ton', tones.length === before, tones.length);
   check('D trotzdem Vibration', vibrations.length === vibBefore + 1, vibrations.length);
 }
@@ -158,8 +175,7 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
 {
   const before = tones.length, resumesBefore = resumeCalls;
   lastContext.state = 'interrupted';   // iOS hat den Kontext kassiert
-  fireSignal('tone');
-  await new Promise((r) => setTimeout(r, 0));
+  await fireSignal('tone');
   check('F resume wurde aufgerufen', resumeCalls === resumesBefore + 1, resumeCalls);
   check('F Ton kam trotzdem', tones.length === before + 2, tones.length);
   check('F Kontext läuft wieder', lastContext.state === 'running', lastContext.state);
@@ -178,10 +194,85 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
 {
   const resumesBefore = resumeCalls, before = tones.length;
   lastContext.state = 'running';
-  fireSignal('tone');
-  await new Promise((r) => setTimeout(r, 0));
+  await fireSignal('tone');
   check('G kein überflüssiges resume', resumeCalls === resumesBefore, resumeCalls);
   check('G Ton gespielt', tones.length === before + 2, tones.length);
+}
+
+// ── I: Der Browser lügt — `state` sagt 'running', die Clock steht ──────────────
+// Gemessen 2026-08-22 (iPhone, Chrome/Safari, nach Wechsel zu Amazon Music): 14 Einträge
+// „played · running", mehrfach kein Ton; der Ton wurde beim nächsten resume() nachgeliefert.
+// Einzige Wahrheit ist, ob `currentTime` vorankommt.
+{
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { audioSession, vibrate: (p) => { vibrations.push(p); return true; } },
+    configurable: true, writable: true,
+  });
+  primeAudio();
+  clearSignalLog();
+  // I1: gesunder Kontext — unverändertes Verhalten, Clock-Befund vermerkt
+  {
+    const before = tones.length, suspendsBefore = suspendCalls, contexts = contextCount;
+    lastContext.state = 'running';
+    await fireSignal('tone');
+    const last = readSignalLog().at(-1);
+    check('I1 Ton gespielt', tones.length === before + 2, tones.length);
+    check('I1 direkter Weg', last?.path === 'direct', last);
+    check('I1 Clock lief', last?.clockBefore === 'advancing', last);
+    check('I1 kein Kick', suspendCalls === suspendsBefore, suspendCalls);
+    check('I1 kein neuer Kontext', contextCount === contexts, contextCount);
+  }
+  // I2: Clock steht, suspend+resume tritt sie wieder an
+  {
+    const before = tones.length, suspendsBefore = suspendCalls, contexts = contextCount;
+    lastContext.state = 'running';
+    lastContext.clockRunning = false;
+    kickRevives = true;
+    await fireSignal('tone');
+    const last = readSignalLog().at(-1);
+    check('I2 Clock stand erkannt', last?.clockBefore === 'stalled', last);
+    check('I2 genau ein suspend', suspendCalls === suspendsBefore + 1, suspendCalls);
+    check('I2 Ton nach Kick', tones.length === before + 2, tones.length);
+    check('I2 Weg kick vermerkt', last?.path === 'kick' && last?.outcome === 'played', last);
+    check('I2 kein neuer Kontext', contextCount === contexts, contextCount);
+  }
+  // I3: Kick hilft nicht — Kontext schließen und neu anlegen
+  {
+    const before = tones.length, contexts = contextCount, closesBefore = closeCalls;
+    const old = lastContext;
+    lastContext.state = 'running';
+    lastContext.clockRunning = false;
+    kickRevives = false;
+    await fireSignal('tone');
+    kickRevives = true;
+    const last = readSignalLog().at(-1);
+    check('I3 alter Kontext geschlossen', closeCalls === closesBefore + 1 && old.state === 'closed', old.state);
+    check('I3 neuer Kontext', contextCount === contexts + 1 && lastContext !== old, contextCount);
+    check('I3 Ton aus neuem Kontext', tones.length === before + 2, tones.length);
+    check('I3 Weg recreate vermerkt', last?.path === 'recreate' && last?.outcome === 'played', last);
+  }
+  // I4: nichts hilft — kein Ton, aber sauber protokolliert und kein Wurf
+  {
+    const before = tones.length;
+    lastContext.state = 'running';
+    lastContext.clockRunning = false;
+    kickRevives = false;
+    newContextsStalled = true;
+    let threw = false;
+    try { await fireSignal('tone'); } catch { threw = true; }
+    kickRevives = true;
+    newContextsStalled = false;
+    const last = readSignalLog().at(-1);
+    check('I4 kein Wurf', !threw, threw);
+    check('I4 kein Ton', tones.length === before, tones.length);
+    check('I4 als stalled vermerkt', last?.outcome === 'stalled', last);
+  }
+  // I5: Nach dem Neuanlegen gilt der neue Kontext auch fürs nächste Freischalten
+  {
+    const contexts = contextCount;
+    primeAudio();
+    check('I5 primeAudio legt keinen weiteren an', contextCount === contexts, contextCount);
+  }
 }
 
 // ── H: Fehlende APIs dürfen nichts umwerfen ────────────────────────────────────
@@ -189,7 +280,7 @@ const { primeAudio, fireSignal, readSignalLog, clearSignalLog } = await import(U
 {
   Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true, writable: true });
   let threw = false;
-  try { primeAudio(); fireSignal('tone'); fireSignal('silent'); } catch { threw = true; }
+  try { primeAudio(); await fireSignal('tone'); await fireSignal('silent'); } catch { threw = true; }
   check('H ohne vibrate kein Fehler', !threw, threw);
 }
 

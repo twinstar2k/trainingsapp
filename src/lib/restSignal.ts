@@ -40,6 +40,17 @@ const TONES: { freq: number; at: number; duration: number }[] = [
 let ctx: AudioContext | null = null;
 let lastPrimeAt = 0;
 
+/**
+ * Wie lange die Clock-Probe wartet, um zu sehen, ob `currentTime` vorankommt.
+ *
+ * WARUM `state` NICHT REICHT: Am iPhone gemessen (2026-08-22, nach Wechsel zur Musik-App
+ * und zurück): 14 Einträge „played · running", mehrfach kein Ton — und der fehlende Ton
+ * wurde beim nächsten `resume()` nachgeliefert. iOS hält also den Render-Thread an,
+ * lässt `state` aber auf 'running'. Einzige Wahrheit: läuft `currentTime` weiter?
+ * 60 ms sind unhörbar und zuverlässig mehr als ein Render-Quantum (128 Samples ≈ 3 ms).
+ */
+const CLOCK_PROBE_MS = 60;
+
 // ── Diagnose ──────────────────────────────────────────────────────────────────
 // Im Studio bleibt der Ton gelegentlich aus, obwohl die App im Vordergrund ist
 // (2026-08-19 gemeldet). Der Moment lässt sich nicht abpassen, deshalb schreibt jeder
@@ -57,9 +68,14 @@ export interface SignalAttempt {
   stateBefore: string;
   /** Sekunden seit dem letzten Freischalten — also seit dem Abhaken des Satzes. */
   sincePrime: number;
-  /** Direkt abgespielt oder erst hochgefahren? */
-  path: 'direct' | 'resume' | 'none';
-  outcome: 'played' | 'resume-rejected' | 'error' | 'no-context' | 'silent';
+  /**
+   * Wie der Ton zustande kam: direkt, nach resume, nach suspend+resume („kick") oder
+   * aus einem neu angelegten Kontext („recreate").
+   */
+  path: 'direct' | 'resume' | 'kick' | 'recreate' | 'none';
+  outcome: 'played' | 'resume-rejected' | 'error' | 'no-context' | 'silent' | 'stalled';
+  /** Kam `currentTime` vor dem ersten Abspielversuch voran? */
+  clockBefore?: 'advancing' | 'stalled';
   stateAfter?: string;
   error?: string;
 }
@@ -105,13 +121,17 @@ export function clearSignalLog(): void {
  * einer echten Nutzergeste frei. Steht davor ein `await`, ist die Geste verbraucht und
  * der Timer bleibt für den Rest der Sitzung stumm.
  */
+function createContext(): AudioContext | null {
+  const Ctor = window.AudioContext
+    ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  return Ctor ? new Ctor() : null;
+}
+
 export function primeAudio(): void {
   try {
     if (!ctx) {
-      const Ctor = window.AudioContext
-        ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) return;
-      ctx = new Ctor();
+      ctx = createContext();
+      if (!ctx) return;
     }
     lastPrimeAt = Date.now();
     if (ctx.state !== 'running') void ctx.resume();
@@ -134,13 +154,23 @@ function playTone(audio: AudioContext, startAt: number, freq: number, duration: 
   osc.stop(startAt + duration + 0.02);
 }
 
+/** Kommt die Render-Clock des Kontexts innerhalb der Probe-Zeit voran? */
+async function clockAdvances(audio: AudioContext): Promise<boolean> {
+  const t0 = audio.currentTime;
+  await new Promise<void>((resolve) => setTimeout(resolve, CLOCK_PROBE_MS));
+  return audio.currentTime > t0;
+}
+
 /**
  * Signalisiert das Pausenende.
  *
  * Vibration läuft immer mit — auf Android ein zweiter Kanal, auf iOS nicht vorhanden
  * (am Gerät bestätigt: `navigator.vibrate` fehlt dort).
+ *
+ * Der Aufrufer wartet nicht auf das Ergebnis; die Funktion wirft nie, sondern
+ * protokolliert jeden Ausgang (siehe Diagnose oben).
  */
-export function fireSignal(mode: RestSignalMode): void {
+export async function fireSignal(mode: RestSignalMode): Promise<void> {
   try {
     navigator.vibrate?.([200, 100, 200]);
   } catch {
@@ -164,39 +194,64 @@ export function fireSignal(mode: RestSignalMode): void {
     record({ ...base, path: 'none', outcome: 'no-context' });
     return;
   }
-  const audio = ctx;
 
-  const play = (path: 'direct' | 'resume') => {
-    try {
-      const start = audio.currentTime;
-      for (const t of TONES) playTone(audio, start + t.at, t.freq, t.duration);
-      record({ ...base, path, outcome: 'played', stateAfter: audio.state });
-    } catch (error) {
-      record({
-        ...base, path, outcome: 'error', stateAfter: audio.state,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
+  let audio = ctx;
+  let path: SignalAttempt['path'] = 'direct';
 
-  // Zwischen dem Freischalten (beim Abhaken) und dem Ablauf liegen Minuten. In dieser Zeit
-  // unterbricht iOS den Kontext regelmäßig, sobald die Musik-App den Audio-Fokus hält —
-  // ein Start darauf erzeugt keinen hörbaren Ton. Deshalb erst hochfahren.
   try {
-    if (audio.state === 'running') {
-      play('direct');
-    } else {
-      void audio.resume().then(
-        () => play('resume'),
-        (error: unknown) => record({
-          ...base, path: 'resume', outcome: 'resume-rejected', stateAfter: audio.state,
+    // Zwischen dem Freischalten (beim Abhaken) und dem Ablauf liegen Minuten. Meldet iOS
+    // die Unterbrechung ehrlich ('interrupted'/'suspended'), reicht ein resume.
+    if (audio.state !== 'running') {
+      path = 'resume';
+      try {
+        await audio.resume();
+      } catch (error) {
+        record({
+          ...base, path, outcome: 'resume-rejected', stateAfter: audio.state,
           error: error instanceof Error ? error.message : String(error),
-        }),
-      );
+        });
+        return;
+      }
     }
+
+    // Meldet iOS die Unterbrechung NICHT (state 'running', Clock steht), würde der Ton in
+    // einer stehenden Warteschlange landen und erst beim nächsten resume nachgeliefert.
+    const advancing = await clockAdvances(audio);
+    base.clockBefore = advancing ? 'advancing' : 'stalled';
+
+    if (!advancing) {
+      // Stufe 1: den Render-Thread mit suspend+resume antreten.
+      await audio.suspend();
+      await audio.resume();
+      if (await clockAdvances(audio)) {
+        path = 'kick';
+      } else {
+        // Stufe 2: Kontext ist hinüber — wegwerfen und neu anlegen.
+        await audio.close().catch(() => {});
+        ctx = null;
+        const fresh = createContext();
+        if (!fresh) {
+          record({ ...base, path: 'recreate', outcome: 'stalled', stateAfter: 'closed' });
+          return;
+        }
+        ctx = fresh;
+        audio = fresh;
+        await audio.resume();
+        if (await clockAdvances(audio)) {
+          path = 'recreate';
+        } else {
+          record({ ...base, path: 'recreate', outcome: 'stalled', stateAfter: audio.state });
+          return;
+        }
+      }
+    }
+
+    const start = audio.currentTime;
+    for (const t of TONES) playTone(audio, start + t.at, t.freq, t.duration);
+    record({ ...base, path, outcome: 'played', stateAfter: audio.state });
   } catch (error) {
     record({
-      ...base, path: 'none', outcome: 'error', stateAfter: audio.state,
+      ...base, path, outcome: 'error', stateAfter: audio.state,
       error: error instanceof Error ? error.message : String(error),
     });
   }

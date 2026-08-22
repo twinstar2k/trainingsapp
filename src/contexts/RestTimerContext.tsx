@@ -187,7 +187,7 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
     if (phase !== 'running' || !endsAt) return;
     if (remaining > 0) return;
     setPhase('finished');
-    fireSignal(signalRef.current);
+    void fireSignal(signalRef.current);
   }, [phase, endsAt, remaining]);
 
   // „Pause vorbei“ blendet sich von selbst aus — aber erst, nachdem der Nutzer sie auch
