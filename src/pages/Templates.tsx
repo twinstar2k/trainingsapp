@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,10 +9,11 @@ import { ExerciseCatalogModal } from '../components/training/ExerciseCatalogModa
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PromptDialog } from '../components/ui/PromptDialog';
 import {
-  Plus, Pencil, Trash2, X, ChevronUp, ChevronDown, ClipboardList,
+  Plus, Pencil, Trash2, X, ChevronUp, ChevronDown, ChevronLeft, ClipboardList,
 } from 'lucide-react';
 
 export default function Templates() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { templates, loading, createTemplate, renameTemplate, updateExercises, deleteTemplate } = useTemplates();
 
@@ -67,8 +69,19 @@ export default function Templates() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">Vorlagen</h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Die Seite ist nur über das Profil erreichbar — ohne diesen Knopf gäbe es
+              keinen Rückweg außer der Bottom-Nav. */}
+          <button
+            onClick={() => navigate('/profile')}
+            aria-label="Zurück zum Profil"
+            className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">Vorlagen</h2>
+        </div>
         <button
           onClick={() => setShowCreate(true)}
           className="w-10 h-10 rounded-full bg-surface-container-high text-primary flex items-center justify-center hover:bg-primary hover:text-on-primary transition-all duration-150 active:scale-90"

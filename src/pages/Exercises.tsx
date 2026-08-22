@@ -351,7 +351,7 @@ export default function Exercises() {
             <Activity className="w-8 h-8 text-outline" />
           </div>
           <h3 className="text-lg font-semibold text-on-surface mb-2">Keine Übungen</h3>
-          <p className="text-on-surface-variant text-sm">Gehe ins Profil und initialisiere den Katalog.</p>
+          <p className="text-on-surface-variant text-sm">Der Katalog wird unter Profil &rarr; Daten &amp; Datenschutz initialisiert.</p>
         </div>
       ) : (
         <div className="space-y-2">

@@ -12,6 +12,10 @@ import TrainingDetail from './pages/TrainingDetail';
 import Exercises from './pages/Exercises';
 import ExerciseDetail from './pages/ExerciseDetail';
 import Templates from './pages/Templates';
+import RestTimerPage from './pages/profile/RestTimerPage';
+import CoachPage from './pages/profile/CoachPage';
+import StudiosPage from './pages/profile/StudiosPage';
+import DataPage from './pages/profile/DataPage';
 
 const Login = () => {
   const { user, loading, signInWithGoogle } = useAuth();
@@ -87,6 +91,10 @@ export default function App() {
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/weight" element={<ProtectedRoute><Weight /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/profile/rest-timer" element={<ProtectedRoute><RestTimerPage /></ProtectedRoute>} />
+            <Route path="/profile/coach" element={<ProtectedRoute><CoachPage /></ProtectedRoute>} />
+            <Route path="/profile/studios" element={<ProtectedRoute><StudiosPage /></ProtectedRoute>} />
+            <Route path="/profile/data" element={<ProtectedRoute><DataPage /></ProtectedRoute>} />
           </Routes>
         </BrowserRouter>
       </RestTimerProvider>
