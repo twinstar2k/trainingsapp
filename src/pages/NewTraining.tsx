@@ -89,12 +89,12 @@ export default function NewTraining() {
         <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">Neues Training</h2>
         <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl text-center">
           <h3 className="text-amber-800 font-semibold mb-2">Kein Studio vorhanden</h3>
-          <p className="text-amber-700 text-sm mb-4">Du musst zuerst ein Studio in deinem Profil anlegen.</p>
+          <p className="text-amber-700 text-sm mb-4">Du musst zuerst ein Studio anlegen — unter Profil &rarr; Studios.</p>
           <button
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/profile/studios')}
             className="bg-amber-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-amber-700 transition-colors"
           >
-            Zum Profil
+            Studio anlegen
           </button>
         </div>
       </div>

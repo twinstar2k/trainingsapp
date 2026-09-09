@@ -2,6 +2,7 @@
 // Der KI-Empfehlungs-Vertrag (von App UND Cloud Function genutzt) liegt in shared/ai-types.ts
 // und wird hier re-exportiert, damit bestehende Imports aus '@/types' unverändert funktionieren.
 import type { ExerciseType, GoalKey, RirLevel } from '../../shared/ai-types';
+import type { RestSignalMode, RestTimerMode } from '../utils/restTimer';
 
 export type {
   ExerciseType,
@@ -94,5 +95,10 @@ export interface UserProfile {
   email: string;
   birthday?: string;
   createdAt: number;
+  nickname?: string; // optionaler Spitzname, überschreibt den Google-Vornamen
   trainingGoal?: GoalKey; // Standard-Trainingsziel, Default für KI-Empfehlungen
+  // Pausen-Timer (siehe src/utils/restTimer.ts). Fehlende Felder = Voreinstellung.
+  restTimerMode?: RestTimerMode;
+  restSeconds?: number; // 30–600 in 30-Sekunden-Schritten
+  restSignal?: RestSignalMode;
 }

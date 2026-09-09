@@ -33,6 +33,18 @@
         "source": "**",
         "destination": "/index.html"
       }
+    ],
+    "headers": [
+      {
+        "//": "Ohne diese Regel liefert Firebase Hosting index.html mit max-age=3600 aus. Ein Deploy erreicht Nutzer dann erst bis zu eine Stunde später, weil der Browser weiter die alte index.html mit dem alten Bundle-Namen benutzt (2026-08-09 im Feld aufgefallen: neue Version deployt, Gerät zeigte weiter die alte). no-cache heisst nicht 'nicht speichern', sondern 'vor Benutzung beim Server rueckfragen' — bei einer 4-KB-Datei kostet das nichts.",
+        "source": "**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "//": "Assets tragen einen Inhalts-Hash im Dateinamen (index-Df1wHzl3.js). Aendert sich der Inhalt, aendert sich der Name — sie duerfen deshalb ewig gecacht werden.",
+        "source": "**/*.@(js|css|woff|woff2|ttf|png|jpg|jpeg|gif|svg|ico|webp)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      }
     ]
   }
 }

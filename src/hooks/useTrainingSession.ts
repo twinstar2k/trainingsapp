@@ -188,11 +188,16 @@ export function useTrainingSession(trainingId: string | undefined) {
     }
   };
 
-  const toggleSetStatus = async (trainingExerciseId: string, setId: string) => {
+  // Gibt den neuen Status zurück (null, wenn der Satz nicht gefunden wurde) — analog zu
+  // toggleTrainingStatus. Der Pausen-Timer darf nur beim Abhaken starten, nicht beim
+  // Ent-Haken; ohne Rückgabewert müsste der Aufrufer den Zielstatus selbst herleiten.
+  const toggleSetStatus = async (trainingExerciseId: string, setId: string): Promise<'open' | 'done' | null> => {
     const exercise = exercises.find(e => e.id === trainingExerciseId);
     const set = exercise?.sets.find(s => s.id === setId);
-    if (!set) return;
-    await updateSet(trainingExerciseId, setId, 'status', set.status === 'open' ? 'done' : 'open');
+    if (!set) return null;
+    const next = set.status === 'open' ? 'done' : 'open';
+    await updateSet(trainingExerciseId, setId, 'status', next);
+    return next;
   };
 
   // Reserve (RIR) der Übung erfassen — pro Übung ein Wert, optional. Speist die KI-Autoregulation.

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { RestTimerProvider } from './contexts/RestTimerContext';
 import { AppLayout } from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
@@ -11,6 +12,10 @@ import TrainingDetail from './pages/TrainingDetail';
 import Exercises from './pages/Exercises';
 import ExerciseDetail from './pages/ExerciseDetail';
 import Templates from './pages/Templates';
+import RestTimerPage from './pages/profile/RestTimerPage';
+import CoachPage from './pages/profile/CoachPage';
+import StudiosPage from './pages/profile/StudiosPage';
+import DataPage from './pages/profile/DataPage';
 
 const Login = () => {
   const { user, loading, signInWithGoogle } = useAuth();
@@ -72,20 +77,27 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/trainings" element={<ProtectedRoute><Trainings /></ProtectedRoute>} />
-          <Route path="/trainings/new" element={<ProtectedRoute><NewTraining /></ProtectedRoute>} />
-          <Route path="/trainings/:id" element={<ProtectedRoute><TrainingDetail /></ProtectedRoute>} />
-          <Route path="/exercises" element={<ProtectedRoute><Exercises /></ProtectedRoute>} />
-          <Route path="/exercises/:exerciseId" element={<ProtectedRoute><ExerciseDetail /></ProtectedRoute>} />
-          <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
-          <Route path="/weight" element={<ProtectedRoute><Weight /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        </Routes>
-      </BrowserRouter>
+      {/* Oberhalb des Routers: Die Pause darf einen Seitenwechsel überleben. */}
+      <RestTimerProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/trainings" element={<ProtectedRoute><Trainings /></ProtectedRoute>} />
+            <Route path="/trainings/new" element={<ProtectedRoute><NewTraining /></ProtectedRoute>} />
+            <Route path="/trainings/:id" element={<ProtectedRoute><TrainingDetail /></ProtectedRoute>} />
+            <Route path="/exercises" element={<ProtectedRoute><Exercises /></ProtectedRoute>} />
+            <Route path="/exercises/:exerciseId" element={<ProtectedRoute><ExerciseDetail /></ProtectedRoute>} />
+            <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+            <Route path="/weight" element={<ProtectedRoute><Weight /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/profile/rest-timer" element={<ProtectedRoute><RestTimerPage /></ProtectedRoute>} />
+            <Route path="/profile/coach" element={<ProtectedRoute><CoachPage /></ProtectedRoute>} />
+            <Route path="/profile/studios" element={<ProtectedRoute><StudiosPage /></ProtectedRoute>} />
+            <Route path="/profile/data" element={<ProtectedRoute><DataPage /></ProtectedRoute>} />
+          </Routes>
+        </BrowserRouter>
+      </RestTimerProvider>
     </AuthProvider>
   );
 }

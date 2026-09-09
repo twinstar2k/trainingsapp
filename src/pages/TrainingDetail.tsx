@@ -10,9 +10,11 @@ import { CompletionCelebration } from '../components/ui/CompletionCelebration';
 import { RecommendationDialog } from '../components/ai/RecommendationDialog';
 import { ExerciseCard } from '../components/training/ExerciseCard';
 import { ExerciseCatalogModal } from '../components/training/ExerciseCatalogModal';
+import { RestTimerBar } from '../components/training/RestTimerBar';
 import { TrainingRatingInput } from '../components/training/TrainingRating';
 import { useTrainingSession } from '../hooks/useTrainingSession';
 import { useTemplates } from '../hooks/useTemplates';
+import { useRestTimer } from '../contexts/RestTimerContext';
 
 // Seite = Komposition: Daten/Mutationen liegen in useTrainingSession,
 // die Übungs-UI in components/training/. Hier nur Header, Karten, Abschluss + Dialoge.
@@ -41,6 +43,7 @@ export default function TrainingDetail() {
     applyRecommendation,
   } = useTrainingSession(id);
   const { createTemplate } = useTemplates();
+  const { settings: restSettings, phase: restPhase, primeAudio, startRest, armRest, cancelRest } = useRestTimer();
 
   const [showCatalog, setShowCatalog] = useState(false);
   const [showDeleteTraining, setShowDeleteTraining] = useState(false);
@@ -60,9 +63,21 @@ export default function TrainingDetail() {
     if (await addExercise(catalogExerciseId)) setShowCatalog(false);
   };
 
+  // Satz abhaken startet die Pause. primeAudio() MUSS vor dem ersten await stehen: iOS gibt
+  // Audio nur innerhalb einer echten Nutzergeste frei — danach ist sie verbraucht und der
+  // Timer bliebe für den Rest der Sitzung stumm.
+  const handleToggleSet = async (trainingExerciseId: string, setId: string) => {
+    if (restSettings.mode !== 'off') primeAudio();
+    const newStatus = await toggleSetStatus(trainingExerciseId, setId);
+    if (newStatus !== 'done' || restSettings.mode === 'off') return;
+    if (restSettings.mode === 'manual') armRest();
+    else startRest();
+  };
+
   const handleToggleTraining = async () => {
     const newStatus = await toggleTrainingStatus();
     if (newStatus === 'completed') {
+      cancelRest(); // nach dem letzten Satz braucht niemand mehr eine Pause
       setCelebrationNumber(undefined);
       setCelebrationSeed(Math.floor(Math.random() * 1000)); // Zufall im Event-Handler (rein im Render)
       setShowCelebration(true);
@@ -94,7 +109,8 @@ export default function TrainingDetail() {
   const isActive = training.status === 'active';
 
   return (
-    <div className="space-y-6 pb-20">
+    // Mehr Luft nach unten, solange die Pausen-Leiste über der Navigation steht.
+    <div className={cn('space-y-6', restPhase === 'idle' ? 'pb-20' : 'pb-44')}>
       {/* Header */}
       <div className="bg-surface-container-lowest p-4 rounded-2xl border border-surface-container shadow-sm">
         <div className="flex justify-between items-start mb-2">
@@ -151,7 +167,7 @@ export default function TrainingDetail() {
             onDelete={() => deleteExercise(ex.id)}
             onAddSet={() => addSet(ex.id)}
             onUpdateSet={(setId, field, value) => updateSet(ex.id, setId, field, value)}
-            onToggleSetStatus={(setId) => toggleSetStatus(ex.id, setId)}
+            onToggleSetStatus={(setId) => handleToggleSet(ex.id, setId)}
             onDeleteSet={(setId) => deleteSet(ex.id, setId)}
             onSetRir={(rir) => setRir(ex.id, rir)}
             onRecommend={() => setRecommendExerciseId(ex.details.id)}
@@ -224,6 +240,9 @@ export default function TrainingDetail() {
           onClose={() => setRecommendExerciseId(null)}
         />
       )}
+
+      {/* Läuft im Context weiter, wird aber nur hier gezeigt. */}
+      <RestTimerBar />
 
       <CompletionCelebration
         isOpen={showCelebration}

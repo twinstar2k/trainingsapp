@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, Sparkles, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
 import type { GoalKey, RecommendationPayload } from '../../types';
-import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../lib/firebase';
+import { useUserSettings } from '../../hooks/useUserSettings';
 import { GOAL_LABELS } from '../../lib/goals';
 import { useRecommendation } from '../../hooks/useRecommendation';
 import { RecommendationPreview, type PreviewExerciseInfo } from './RecommendationPreview';
@@ -17,7 +15,7 @@ interface RecommendationDialogProps {
 }
 
 export function RecommendationDialog({ studioId, date, exercises, onApply, onClose }: RecommendationDialogProps) {
-  const { user } = useAuth();
+  const { settings, loaded: settingsLoaded } = useUserSettings();
   const { getRecommendation, loading, error } = useRecommendation();
   const [goal, setGoal] = useState<GoalKey>('progression');
   const [payload, setPayload] = useState<RecommendationPayload | null>(null);
@@ -44,30 +42,20 @@ export function RecommendationDialog({ studioId, date, exercises, onApply, onClo
     [getRecommendation, studioId, date, exercises],
   );
 
-  // Beim Öffnen: Standard-Ziel aus dem Profil laden und sofort Empfehlung holen.
+  // Beim Öffnen: Standard-Ziel aus dem Profil übernehmen und sofort Empfehlung holen.
+  // Wartet auf die geladene Einstellung — sonst liefe die Anfrage mit der Voreinstellung
+  // los und würde ein abweichend eingestelltes Ziel überfahren. Der Ref sorgt dafür, dass
+  // das genau einmal passiert.
+  const startedRef = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      let g: GoalKey = 'progression';
-      if (user && db) {
-        try {
-          const snap = await getDoc(doc(db, 'users', user.uid));
-          const profileGoal = snap.data()?.trainingGoal as GoalKey | undefined;
-          if (profileGoal) g = profileGoal;
-        } catch {
-          /* Default 'progression' bleibt */
-        }
-      }
-      if (cancelled) return;
-      setGoal(g);
-      await runFetch(g);
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // Nur beim Öffnen ausführen.
+    if (!settingsLoaded || startedRef.current) return;
+    startedRef.current = true;
+    setGoal(settings.trainingGoal);
+    void runFetch(settings.trainingGoal);
+    // Absichtlich nur an settingsLoaded gebunden — ein späterer Zielwechsel im Profil
+    // soll den offenen Dialog nicht neu rechnen lassen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [settingsLoaded]);
 
   const handleApply = async () => {
     if (!payload) return;
