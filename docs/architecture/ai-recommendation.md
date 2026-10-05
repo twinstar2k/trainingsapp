@@ -104,12 +104,11 @@ export interface TrainingState {
 export interface RecommendedSet { reps: number; weight?: number; }
 export interface RecommendedExercise {
   exerciseId: string;            // MUSS aus der angefragten Liste stammen
-  rationale: string;             // kurze Begründung
+  rationale: string;             // Analyse + Empfehlung, ein Fließtext (2–4 Sätze)
   restSeconds: number;
   sets: RecommendedSet[];
 }
 export interface RecommendationPayload {
-  summary: string;               // Gesamt-Begründung
   exercises: RecommendedExercise[];
 }
 ```
