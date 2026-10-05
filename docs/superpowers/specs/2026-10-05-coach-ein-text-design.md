@@ -24,8 +24,11 @@ Gesamt-Begründung, `rationale` als Einzel-Begründung je Übung. Tatsächlich �
   Zwischenüberschriften, kein zweites Feld.
 - Die inhaltlichen Verbote im Prompt gelten unverändert (keine erfundene Anstrengung, kein
   8–12-Bereich bei `reps_only`, kein Last-Sprung bei `load_capped_reps`).
-- Anzeige: Übungsname, darunter der Text in `text-base leading-relaxed text-on-surface` auf dem
-  normalen Kartenhintergrund, dann Pause und Flag-Chips, dann die editierbaren Sätze.
+- Anzeige: grauer Kopfstreifen mit Übungsname, Pause und Flag-Chips. Darunter der Text als grün
+  getönter Block (`bg-primary/10`, `text-base leading-relaxed text-on-surface`), dann die
+  editierbaren Sätze. Der Block trägt weder Icon noch Label — der Absender steht bereits in der
+  Kopfzeile des Dialogs („Dein Coach" mit Funkeln-Icon). Kräftiges Vollgrün bleibt dem
+  „Übernehmen"-Button vorbehalten.
 - Der Fallback bei fehlendem LLM-Text bleibt `describePlan` (`shared/policy.ts`).
 
 Verworfen: zwei beschriftete Absätze „Analyse" / „Empfehlung". Das wären wieder zwei Felder im
