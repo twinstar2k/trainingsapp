@@ -11,8 +11,10 @@ import { de } from 'date-fns/locale';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { ChevronLeft, TrendingUp } from 'lucide-react';
+import { ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { formatPace, formatHoldTime } from '../utils/metrics';
+import { cn } from '../lib/utils';
+import { computeProgressChange, formatPercentChange, ChangeDirection } from '../utils/progressChange';
 
 type Metric = 'maxWeight' | 'volume' | 'oneRM' | 'maxReps' | 'totalReps' | 'duration' | 'distance' | 'pace' | 'maxHold' | 'totalHold';
 
@@ -40,6 +42,12 @@ const METRIC_UNIT: Record<Metric, string> = {
   pace: 'min/km',
   maxHold: '', // formatHoldTime liefert die Einheit mit ("45 s" / "1:30")
   totalHold: '',
+};
+
+const CHANGE_COLOR: Record<ChangeDirection, string> = {
+  better: 'text-primary',
+  worse: 'text-error',
+  flat: 'text-on-surface-variant',
 };
 
 const METRICS_BY_TYPE: Record<Exercise['type'], Metric[]> = {
@@ -208,6 +216,13 @@ export default function ExerciseDetail() {
     value: metricValue(s, activeMetric),
   }));
 
+  // Änderung erster → letzter Punkt der sichtbaren Kurve (null bei < 2 Punkten).
+  const change = computeProgressChange(
+    chartSessions.map(s => metricValue(s, activeMetric) as number),
+    lowerIsBetter
+  );
+  const ChangeIcon = !change || change.percent === 0 ? Minus : change.percent > 0 ? TrendingUp : TrendingDown;
+
   const allTimeSession = sessions.reduce<SessionProgress | null>((best, s) => {
     const sv = metricValue(s, activeMetric);
     if (sv == null) return best;
@@ -333,9 +348,25 @@ export default function ExerciseDetail() {
 
       {/* Chart */}
       <div className="bg-surface-container-lowest rounded-2xl border border-surface-container p-4 shadow-sm">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">
-          Verlauf · {METRIC_LABELS[activeMetric]}
-        </h3>
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+            Verlauf · {METRIC_LABELS[activeMetric]}
+          </h3>
+          {studioReady && !loading && !error && change && (
+            <div className="text-right shrink-0">
+              <p className={cn(
+                'flex items-center justify-end gap-1 text-sm font-headline font-extrabold tabular-nums',
+                CHANGE_COLOR[change.direction]
+              )}>
+                <ChangeIcon className="w-4 h-4" aria-hidden="true" />
+                {formatPercentChange(change.percent)}
+              </p>
+              <p className="text-xs text-outline tabular-nums mt-0.5">
+                {formatValue(change.first)} → {formatValue(change.last)}
+              </p>
+            </div>
+          )}
+        </div>
 
         {!studioReady ? (
           studioLookupDone ? (
