@@ -197,7 +197,6 @@ for (const model of MODELS) {
     md.push(`### ${sc.id}`, `_${sc.description}_`, '');
     if (!r?.valid) { md.push(`**Ergebnis:** ${r?.apiError ? 'API-FEHLER — ' + r.apiError : 'UNGÜLTIG — ' + r?.structErr}`, ''); continue; }
     md.push(`**valide:** ${r.retried ? 'ja (nach Retry)' : 'ja'}  ·  **clamps:** ${r.clamps}  ·  **viol:** ${r.violations}  ·  **starter:** ${r.starters}  ·  **${r.latencyMs}ms**  ·  **${r.usage?.total_tokens ?? '?'} tok**`, '');
-    md.push('> ' + (r.payload.summary || '').replace(/\n/g, ' '), '');
     for (const ex of r.payload.exercises) {
       const sets = ex.sets.map((s) => (s.weight != null ? `${s.reps}×${s.weight}kg` : `${s.reps} Wdh`)).join(', ');
       md.push(`- **${ex.exerciseId}** — ${sets}  (Pause ${ex.restSeconds}s) — _${ex.rationale}_`);

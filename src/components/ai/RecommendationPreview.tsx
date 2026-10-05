@@ -1,5 +1,5 @@
 import type { ExerciseType, RecommendationPayload } from '../../types';
-import { Trash2, Info } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export interface PreviewExerciseInfo {
@@ -46,23 +46,16 @@ export function RecommendationPreview({ payload, exerciseInfo, flags, onChange }
 
   return (
     <div className="space-y-4">
-      {payload.summary && (
-        <div className="flex gap-2 p-3 rounded-2xl bg-primary/5 border border-primary/10 text-sm text-on-surface-variant">
-          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-          <span>{payload.summary}</span>
-        </div>
-      )}
-
       {payload.exercises.map((ex, exIdx) => {
         const info = infoOf(ex.exerciseId);
         const type: ExerciseType = info?.type ?? 'weighted';
         const exFlags = flagsFor(ex.exerciseId);
         return (
           <div key={ex.exerciseId} className="bg-surface-container-lowest rounded-2xl border border-surface-container shadow-sm overflow-hidden">
-            <div className="p-3 border-b border-surface-container bg-surface-container-low">
+            <div className="p-4 border-b border-surface-container">
               <div className="font-bold text-on-surface">{info?.name ?? ex.exerciseId}</div>
-              <div className="text-xs text-on-surface-variant mt-0.5">{ex.rationale}</div>
-              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <p className="text-base leading-relaxed text-on-surface mt-2">{ex.rationale}</p>
+              <div className="flex flex-wrap items-center gap-1.5 mt-3">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-outline">
                   Pause {ex.restSeconds}s
                 </span>

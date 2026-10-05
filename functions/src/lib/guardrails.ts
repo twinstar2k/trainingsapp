@@ -17,7 +17,6 @@ export function validateStructure(p: unknown): { valid: boolean; errors: string[
   if (!p || typeof p !== 'object') return { valid: false, errors: ['payload ist kein Objekt'] };
   const payload = p as Record<string, unknown>;
 
-  if (!isStr(payload.summary)) errors.push('summary fehlt/ungültig');
   if (!Array.isArray(payload.exercises) || payload.exercises.length === 0) {
     errors.push('exercises fehlt/leer');
     return { valid: false, errors };
@@ -109,7 +108,6 @@ export function applyGuardrails(payload: RecommendationPayload, state: TrainingS
 export function clampPayload(payload: RecommendationPayload, result: GuardrailResult): RecommendationPayload {
   const capById = new Map(result.clamps.map((c) => [c.exerciseId, c.capWeight]));
   return {
-    summary: payload.summary,
     exercises: payload.exercises.map((ex) => {
       const cap = capById.get(ex.exerciseId);
       if (cap == null) return ex;
