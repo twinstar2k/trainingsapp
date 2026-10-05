@@ -104,6 +104,10 @@ Einfachster Indikator: Das schwerste verwendete Gewicht in einer Session, unabh�
    **When** ich den Volumen-Chart anschaue
    **Then** sehe ich 1.500 kg für Session A und 2.000 kg für Session B — der Unterschied ist erkennbar
 
+3. **Given** der Chart zeigt mindestens 2 Datenpunkte *(ergänzt 2026-10-05)*
+   **When** ich eine beliebige Metrik ansehe
+   **Then** steht im Chart-Kopf die relative Änderung vom ersten zum letzten Punkt der sichtbaren Kurve (z. B. „+46,9 %", darunter „2175 kg → 3195 kg") — eine Nachkommastelle; Grün bei Verbesserung, Rot bei Verschlechterung, neutral bei 0,0 %. Details: `docs/superpowers/specs/2026-10-05-verlauf-aenderung-design.md`
+
 ---
 
 ### US-04: Beste Leistung & letzte Session

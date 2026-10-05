@@ -99,7 +99,7 @@ trainingsapp/
 └── tsconfig.json
 ```
 
-## Implementierter Funktionsumfang (Stand 2026-07-18)
+## Implementierter Funktionsumfang (Stand 2026-10-05)
 
 - Google Login (signInWithPopup)
 - **Private Beta / Zugangs-Allowlist:** Eingeloggt ≠ freigeschaltet — nur gelistete Konten können die App nutzen (siehe Firebase-Konventionen). Fremde Konten sehen eine „Private Beta"-Sperrseite.
@@ -113,6 +113,7 @@ trainingsapp/
   - `weighted`: Max-Gewicht / Volumen / 1RM (kg)
   - `reps_only`: Max. Wdh / Gesamt Wdh (Wdh) — für Bodyweight-Übungen wie Beinheben
   - `isometric`: Max. Haltezeit / Gesamt-Haltezeit — für statische Übungen wie Plank/Wandsitz, Erfassung in Min + Sek (gespeichert als `holdSeconds`, Sekunden)
+  - **Änderung in %:** Chart-Kopf zeigt die relative Änderung vom ersten zum letzten Punkt der **sichtbaren** Kurve („+46,9 %", darunter „2175 kg → 3195 kg"), für jede Metrik. Farbe = Bewertung (bei Pace ist niedriger besser), Pfeil = Richtung der Zahl. Regel in `src/utils/progressChange.ts`, Konzept: `docs/superpowers/specs/2026-10-05-verlauf-aenderung-design.md`.
   - „Zuletzt"-Label im aktiven Training
 - **Live-Progressionsanzeige im aktiven Training:** Fortschrittsbalken in der Übungskarte zeigt live, wie nah die abgehakten Sätze an der Bestleistung sind (weighted: Volumen, reps_only: Gesamt-Wdh, isometric: Gesamt-Haltezeit; letzte 20 Sessions als Basis). Ab Bestwert: Amber + „Bestleistung übertroffen!". Hook `src/hooks/useExerciseReference.ts` (ersetzt `useLastSession`, liefert Zuletzt-Label + Bestwert in einem Durchlauf), Komponente `src/components/training/LiveProgressBar.tsx`.
 - **KI-Trainingsempfehlung (Flag-gesteuert, `VITE_AI_RECOMMENDATIONS`):** Pro Übung, Policy-first — deterministischer Coach-Kern (`shared/policy.ts`, Double Progression + RIR-Autoregulation + Trend/Plateau) rechnet, das LLM begründet nur. Callable `getTrainingRecommendation` über EU-Gateway. Konzept: `docs/architecture/ai-coach-engine.md`. Coach-Button nur für weighted/reps_only (isometric/cardio bewusst ohne Coach).
