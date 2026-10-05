@@ -24,9 +24,10 @@ Gesamt-Begründung, `rationale` als Einzel-Begründung je Übung. Tatsächlich �
   Zwischenüberschriften, kein zweites Feld.
 - Die inhaltlichen Verbote im Prompt gelten unverändert (keine erfundene Anstrengung, kein
   8–12-Bereich bei `reps_only`, kein Last-Sprung bei `load_capped_reps`).
-- Anzeige: grauer Kopfstreifen mit Übungsname, Pause und Flag-Chips. Darunter der Text als grün
+- Anzeige: grauer Kopfstreifen mit Übungsname und Flag-Chips. Darunter der Text als grün
   getönter Block (`bg-primary/10`, `text-base leading-relaxed text-on-surface`), dann die
-  editierbaren Sätze. Der Block trägt weder Icon noch Label — der Absender steht bereits in der
+  Pausenvorgabe direkt über den editierbaren Sätzen — sie gehört zu Gewicht und Wdh, nicht zum
+  Titel. Der Block trägt weder Icon noch Label — der Absender steht bereits in der
   Kopfzeile des Dialogs („Dein Coach" mit Funkeln-Icon). Kräftiges Vollgrün bleibt dem
   „Übernehmen"-Button vorbehalten.
 - Der Fallback bei fehlendem LLM-Text bleibt `describePlan` (`shared/policy.ts`).
