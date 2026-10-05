@@ -28,7 +28,7 @@ mit Übersicht + Empfehlungen je Szenario inkl. Platzhalter „Qualität (1–5)
 |---|---|---|
 | `REQUESTY_API_KEY` | – | **Pflicht.** Requesty-Key. |
 | `REQUESTY_BASE_URL` | `https://router.eu.requesty.ai/v1` | EU-Endpunkt (OpenAI-kompatibel). |
-| `REQUESTY_MODELS` | `bedrock/claude-haiku-4-5@eu-central-1,bedrock/minimax-m2.5@eu-central-1,bedrock/claude-opus-4-8@eu-central-1` | Kandidaten, kommagetrennt. |
+| `REQUESTY_MODELS` | `vertex/claude-sonnet-5-5@eu,bedrock/claude-haiku-4-5@eu-central-1` | Kandidaten, kommagetrennt. |
 
 > **Exakte Modell-IDs** per Copy-Button in Requestys Model Library holen. Falls ein Lauf `model not found`
 > meldet, das `bedrock/`-Prefix anpassen/weglassen. Default = Frankfurt-Kandidaten (haiku-4-5 / minimax-m2.5 / opus-4-8).

@@ -20,10 +20,11 @@ db.settings({ ignoreUndefinedProperties: true });
 
 const REQUESTY_API_KEY = defineSecret('REQUESTY_API_KEY');
 const BASE_URL = 'https://router.eu.requesty.ai/v1';
-const DEFAULT_MODEL = 'bedrock/claude-haiku-4-5@eu-central-1';
+const DEFAULT_MODEL = 'vertex/claude-sonnet-5-5@eu';
 
 // Server-Allowlist: nur EU-Modelle (zweite Schicht zur Requesty-Access-List, §6).
 const EU_MODEL_ALLOWLIST = new Set<string>([
+  'vertex/claude-sonnet-5-5@eu',
   'bedrock/claude-haiku-4-5@eu-central-1',
   'bedrock/minimax-m2.5@eu-central-1',
   'bedrock/claude-opus-4-8@eu-central-1',

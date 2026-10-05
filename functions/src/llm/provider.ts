@@ -1,5 +1,5 @@
 // LLM-Provider (Sandwich-Schicht B): Aufruf des EU-Gateways Requesty (OpenAI-kompatibel)
-// via native fetch, strukturierte Ausgabe per Tool-Use, 1 Retry bei Schema-Verstoß.
+// via native fetch, strukturierte Ausgabe per Tool-Use (tool_choice 'auto'), 1 Retry bei Schema-Verstoß.
 // Provider hinter dünner Funktion → später austauschbar (ADR-03).
 import type { ExercisePlan, RecommendationPayload, TrainingState } from '../../../shared/ai-types';
 import { RECOMMENDATION_TOOL } from '../lib/schema';
@@ -55,7 +55,10 @@ export async function getRecommendationFromLlm(opts: {
         model: opts.model,
         messages,
         tools: [RECOMMENDATION_TOOL],
-        tool_choice: { type: 'function', function: { name: 'submit_recommendation' } },
+        // 'auto' statt erzwungenem Tool: Sonnet 5.5 lehnt erzwungenes tool_choice mit HTTP 400 ab
+        // (gemessen 2026-10-05). Der Prompt verlangt das Tool, extractPayload nimmt ersatzweise
+        // JSON im Text, der Retry fängt Ausreißer. Nicht auf ein erzwungenes Tool zurückbauen.
+        tool_choice: 'auto',
         temperature: 0.3,
       }),
     });

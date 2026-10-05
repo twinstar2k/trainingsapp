@@ -236,7 +236,8 @@ src/lib/firebase.ts                 ← getFunctions(app, 'europe-west3') ergän
 
 | Modell-ID | Rolle | Eval-Notiz |
 |---|---|---|
-| `bedrock/claude-haiku-4-5@eu-central-1` | **Default (gewählt)** | schnellste Latenz (~2,8 s e2e), 100 % valide, ~0,15 ¢/Empf. |
+| `vertex/claude-sonnet-5-5@eu` | **Default seit 2026-10-05** | genauere Coach-Texte als haiku bei gleicher Latenz (~2,3 s), ~0,8 ¢/Empf.; Provider Google Vertex (EU) statt Bedrock |
+| `bedrock/claude-haiku-4-5@eu-central-1` | Default bis 2026-10-05, weiter freigeschaltet | schnellste Latenz (~2,8 s e2e), 100 % valide, ~0,15 ¢/Empf. |
 | `bedrock/minimax-m2.5@eu-central-1` | Fallback (günstig) | günstigstes (~0,06 ¢), aber ~2× Latenz, etwas forscher |
 | `bedrock/claude-opus-4-8@eu-central-1` | optionaler Qualitätsmodus | feinste Beratung (Studio-Kontext erkannt), aber zu langsam als Default |
 
@@ -265,7 +266,7 @@ Entscheidung & Messwerte: `docs/qa-reports/ai-recommendation-model-eval.md`.
 
 - **Token-Budget klein halten:** Nur die kuratierte `TrainingState` geht in den Prompt (kein Roh-Verlauf). System-Prompt + Katalog-/Regelteil per **Prompt-Caching** wiederverwenden (sofern vom EU-Modell unterstützt) → günstiger pro Anfrage.
 - **Gateway-Aufschlag:** Requesty ~5 % auf die Modellkosten (für unified API, Routing, Failover, EU-Endpunkt). Bei den kleinen Kontexten hier vernachlässigbar gegenüber dem Komfort; Direkt-Provider (0 % Aufschlag, aber Key-Verwaltung pro Anbieter) bleibt via Abstraktion offen.
-- **Modellwahl:** Default `bedrock/claude-haiku-4-5@eu-central-1` (per Eval gewählt — ADR-03 / §6 / qa-report). Kosten je Empfehlung < ⅓ Cent → bei den kleinen Kontexten kein Unterscheidungskriterium.
+- **Modellwahl:** Default `vertex/claude-sonnet-5-5@eu` (seit 2026-10-05, vorher `bedrock/claude-haiku-4-5@eu-central-1`; per Eval gewählt — ADR-03 / §6 / qa-report). Kosten je Empfehlung < ⅓ Cent → bei den kleinen Kontexten kein Unterscheidungskriterium.
 - **Latenz:** wenige Sekunden pro Empfehlung — akzeptabel, weil bewusst per Klick ausgelöst; klarer Lade-Zustand (US-02.1).
 - **Caching von Empfehlungen:** Innerhalb eines Tages ändert sich die Empfehlung kaum — optionales späteres Caching per (exerciseIds + goal + Verlaufs-Hash); für MVP nicht nötig.
 
@@ -292,6 +293,7 @@ Entscheidung & Messwerte: `docs/qa-reports/ai-recommendation-model-eval.md`.
 **Entscheidung:** Modell-Zugang über **Requesty** als EU-Gateway (Frankfurt, AWS `eu-central-1`), OpenAI-SDK-kompatibel über den **EU-Endpunkt** `https://router.eu.requesty.ai/v1`. Dahinter weiterhin die dünne `LlmProvider`-Abstraktion, damit Requesty selbst austauschbar bleibt. Strukturierte Ausgabe via Tool-Use/JSON-Schema; Prompt-Caching nur, sofern vom gewählten EU-Modell unterstützt.
 **Zwei-Ebenen-Pflicht:** Der EU-Endpunkt hält nur *Requestys* Verarbeitung in der EU. Für Ende-zu-Ende-EU muss zusätzlich ein **EU-gehostetes Modell** gewählt werden (Details: §6 „DSGVO / EU-Datenresidenz"). Globale Modell-IDs würden zur Inferenz die EU verlassen.
 **Modellwahl:** Per Eval entschieden (Juni 2026, Frankfurt/`eu-central-1` — siehe `docs/qa-reports/ai-recommendation-model-eval.md`): **Default `bedrock/claude-haiku-4-5@eu-central-1`** (schnellste e2e-Latenz ~2,8 s, 100 % Structured-Output, vernachlässigbare Kosten). Fallback `bedrock/minimax-m2.5@eu-central-1` (günstiger, aber ~2× Latenz); optionaler Qualitätsmodus `bedrock/claude-opus-4-8@eu-central-1` (feinste Beratung, zu langsam als Default).
+**Nachtrag 2026-10-05:** Default ist jetzt `vertex/claude-sonnet-5-5@eu` (genauere Coach-Texte bei gleicher Latenz, ~0,8 ¢/Empfehlung). Das Inferenz-Backend wechselt damit von AWS Bedrock auf **Google Vertex (EU)** — im ROPA als Auftragsverarbeiter nachzuziehen (§6). Sonnet 5.5 lehnt ein erzwungenes `tool_choice` ab; der Provider ruft deshalb mit `tool_choice: 'auto'`. Messung: qa-report, Nachtrag.
 **Konsequenzen:** Flexibilität (viele Modelle, ein Key, OpenAI-SDK) + EU-Residenz + Zero-Retention in einem Schritt; dafür ein zusätzlicher Sub-Prozessor (DPA/ROPA, §6) und Bindung an die Schnittmenge EU-fähiger Modelle. Die Abstraktion bleibt als Versicherung gegen Vendor-/Reifegrad-Risiko (Requesty = junges Startup).
 **Verworfen:** OpenRouter (US-Hop, EU-Residenz unzuverlässig); Anthropic direkt (EU-Residenz schwächer). Beides bleibt über die Abstraktion theoretisch anschließbar; Local-LLM-Option ebenfalls offen.
 
@@ -344,7 +346,7 @@ LLM wählt Übungen selbst (Split/Balance/Erholung): erweiterter Kandidaten-Kont
 
 **Ziel:** Vor dem Bau der Function das EU-Modell mit dem besten **Verhältnis aus Structured-Output-Zuverlässigkeit, Coaching-Qualität und Kosten** für Stufe 1 bestimmen. Bewusst klein gehalten — eine Vorab-Messung, kein vollständiges Benchmarking.
 
-> **Status: durchgeführt (Juni 2026).** Ergebnis & Entscheidung: `docs/qa-reports/ai-recommendation-model-eval.md` → Default `bedrock/claude-haiku-4-5@eu-central-1`.
+> **Status: durchgeführt (Juni 2026), Nachtrag 2026-10-05.** Ergebnis & Entscheidung: `docs/qa-reports/ai-recommendation-model-eval.md` → Default zunächst `bedrock/claude-haiku-4-5@eu-central-1`, seit 2026-10-05 `vertex/claude-sonnet-5-5@eu`.
 
 **Evaluierte Kandidaten (Frankfurt/`eu-central-1`, Bedrock):**
 1. `bedrock/claude-haiku-4-5@eu-central-1` — Sweet-Spot (schnell, robustes Tool-Use) → **gewählt**
