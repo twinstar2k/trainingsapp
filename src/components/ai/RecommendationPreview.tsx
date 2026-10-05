@@ -52,10 +52,9 @@ export function RecommendationPreview({ payload, exerciseInfo, flags, onChange }
         const exFlags = flagsFor(ex.exerciseId);
         return (
           <div key={ex.exerciseId} className="bg-surface-container-lowest rounded-2xl border border-surface-container shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-surface-container">
+            <div className="p-3 border-b border-surface-container bg-surface-container-low">
               <div className="font-bold text-on-surface">{info?.name ?? ex.exerciseId}</div>
-              <p className="text-base leading-relaxed text-on-surface mt-2">{ex.rationale}</p>
-              <div className="flex flex-wrap items-center gap-1.5 mt-3">
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-outline">
                   Pause {ex.restSeconds}s
                 </span>
@@ -72,6 +71,9 @@ export function RecommendationPreview({ payload, exerciseInfo, flags, onChange }
             </div>
 
             <div className="p-3 space-y-2">
+              <p className="rounded-xl bg-primary/10 border border-primary/15 px-4 py-3 mb-3 text-base leading-relaxed text-on-surface">
+                {ex.rationale}
+              </p>
               {ex.sets.map((s, setIdx) => (
                 <div key={setIdx} className="flex items-center gap-2">
                   <div className="w-6 text-center font-bold text-outline text-sm">{setIdx + 1}</div>
