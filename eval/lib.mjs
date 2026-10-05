@@ -54,9 +54,8 @@ export const RECOMMENDATION_TOOL = {
     parameters: {
       type: 'object',
       additionalProperties: false,
-      required: ['summary', 'exercises'],
+      required: ['exercises'],
       properties: {
-        summary: { type: 'string', description: 'Kurze Gesamt-Begründung (Deutsch).' },
         exercises: {
           type: 'array',
           minItems: 1,
@@ -66,7 +65,7 @@ export const RECOMMENDATION_TOOL = {
             required: ['exerciseId', 'rationale', 'restSeconds', 'sets'],
             properties: {
               exerciseId: { type: 'string', description: 'MUSS eine der übergebenen exerciseId sein.' },
-              rationale: { type: 'string', description: 'Kurze Einzel-Begründung (Deutsch).' },
+              rationale: { type: 'string', description: '2–4 Sätze, Deutsch, du-Form: erst die Beobachtung aus dem Verlauf mit konkreten Zahlen, dann die Empfehlung für heute.' },
               restSeconds: { type: 'number', description: 'Empfohlene Pause in Sekunden.' },
               sets: {
                 type: 'array',
@@ -101,7 +100,7 @@ export function buildMessages(state, plans) {
     '',
     'REGELN (zwingend):',
     '- Übung mit vorgegebenem Plan (action ≠ "starter"): Übernimm die Sätze EXAKT — Gewicht und',
-    '  Wiederholungen NICHT ändern. Schreibe nur eine kurze, motivierende Begründung dazu.',
+    '  Wiederholungen NICHT ändern. Du schreibst nur den Text dazu.',
     '- Übung mit action "starter" (kein Verlauf): Schlage selbst konservative, vorsichtige Startsätze',
     '  vor (weighted: Gewicht > 0 und Wdh > 0; reps_only: nur Wdh).',
     '- Nutze NUR beobachtbare Fakten (Wdh × Gewicht aus dem Verlauf, und den RIR falls angegeben).',
@@ -111,7 +110,10 @@ export function buildMessages(state, plans) {
     '- reps_only (Körpergewicht): KEIN fester Wdh-Bereich — Progression läuft rein über mehr',
     '  Wiederholungen. Erwähne NICHT den "8–12"-Bereich; begründe nur mit "eine Wiederholung mehr',
     '  als zuletzt" (ggf. plus Verlauf).',
-    '- Antworte für JEDE übergebene Übung. Begründungen kurz, Deutsch, du-Form.',
+    '- Antworte für JEDE übergebene Übung mit GENAU EINEM Text (rationale), 2–4 Sätze, Deutsch,',
+    '  du-Form: (1) was der Verlauf zeigt — Wdh × Gewicht der letzten Einheit, RIR falls erfasst,',
+    '  "verlauf"-Hinweis falls vorhanden; (2) was heute ansteht und warum. Es gibt keinen zweiten',
+    '  Text — wiederhole nichts und schreibe keine separate Zusammenfassung.',
     '',
     'Antworte AUSSCHLIESSLICH über das Tool submit_recommendation.',
   ].join('\n');
@@ -136,7 +138,7 @@ export function buildMessages(state, plans) {
     `Trainingsziel: ${state.goal} — ${goalDesc}`,
     `Datum: ${state.date} · Studio: ${state.studioId} · Körpergewicht: ${state.bodyweightKg ?? 'unbekannt'} kg`,
     '',
-    'Gib für JEDE Übung eine Begründung (und bei action "starter" auch die Sätze). RIR: 2 = 2+ Reserve, 1 = 1 Reserve, 0 = Versagen.',
+    'Gib für JEDE Übung den Text (und bei action "starter" auch die Sätze). RIR: 2 = 2+ Reserve, 1 = 1 Reserve, 0 = Versagen.',
     '',
     'Übungen inkl. berechnetem Plan (JSON):',
     JSON.stringify(blocks, null, 2),
@@ -153,7 +155,6 @@ export function buildMessages(state, plans) {
 export function applyPolicyOverride(payload, plans) {
   const llmById = new Map(payload.exercises.map((e) => [e.exerciseId, e]));
   return {
-    summary: payload.summary,
     exercises: plans.map((plan) => {
       const llmEx = llmById.get(plan.exerciseId);
       const isStarter = plan.action === 'starter';
@@ -198,7 +199,6 @@ export function validateStructure(p) {
   const isStr = (x) => typeof x === 'string' && x.length > 0;
 
   if (!p || typeof p !== 'object') return { valid: false, errors: ['payload ist kein Objekt'] };
-  if (!isStr(p.summary)) errors.push('summary fehlt/ungültig');
   if (!Array.isArray(p.exercises) || p.exercises.length === 0) {
     errors.push('exercises fehlt/leer');
     return { valid: false, errors };

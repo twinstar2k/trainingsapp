@@ -136,7 +136,6 @@ export const getTrainingRecommendation = onCall(
     // Guardrails bleiben als Sicherheitsnetz (Cap, Starter-Flag).
     const llmById = new Map(llm.payload.exercises.map((e) => [e.exerciseId, e]));
     const cleaned: RecommendationPayload = {
-      summary: llm.payload.summary,
       exercises: plans.map((plan) => {
         const llmEx = llmById.get(plan.exerciseId);
         const isStarter = plan.action === 'starter';

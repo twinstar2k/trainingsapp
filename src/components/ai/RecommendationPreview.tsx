@@ -1,5 +1,5 @@
 import type { ExerciseType, RecommendationPayload } from '../../types';
-import { Trash2, Info } from 'lucide-react';
+import { Timer, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export interface PreviewExerciseInfo {
@@ -46,13 +46,6 @@ export function RecommendationPreview({ payload, exerciseInfo, flags, onChange }
 
   return (
     <div className="space-y-4">
-      {payload.summary && (
-        <div className="flex gap-2 p-3 rounded-2xl bg-primary/5 border border-primary/10 text-sm text-on-surface-variant">
-          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-          <span>{payload.summary}</span>
-        </div>
-      )}
-
       {payload.exercises.map((ex, exIdx) => {
         const info = infoOf(ex.exerciseId);
         const type: ExerciseType = info?.type ?? 'weighted';
@@ -61,24 +54,29 @@ export function RecommendationPreview({ payload, exerciseInfo, flags, onChange }
           <div key={ex.exerciseId} className="bg-surface-container-lowest rounded-2xl border border-surface-container shadow-sm overflow-hidden">
             <div className="p-3 border-b border-surface-container bg-surface-container-low">
               <div className="font-bold text-on-surface">{info?.name ?? ex.exerciseId}</div>
-              <div className="text-xs text-on-surface-variant mt-0.5">{ex.rationale}</div>
-              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-outline">
-                  Pause {ex.restSeconds}s
-                </span>
-                {exFlags.map((f) => {
-                  const meta = FLAG_LABEL[f];
-                  if (!meta) return null;
-                  return (
-                    <span key={f} className={cn('px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider', meta.cls)}>
-                      {meta.text}
-                    </span>
-                  );
-                })}
-              </div>
+              {exFlags.some((f) => FLAG_LABEL[f]) && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {exFlags.map((f) => {
+                    const meta = FLAG_LABEL[f];
+                    if (!meta) return null;
+                    return (
+                      <span key={f} className={cn('px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider', meta.cls)}>
+                        {meta.text}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="p-3 space-y-2">
+              <p className="rounded-xl bg-primary/10 border border-primary/15 px-4 py-3 mb-3 text-base leading-relaxed text-on-surface">
+                {ex.rationale}
+              </p>
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-outline">
+                <Timer className="w-3.5 h-3.5" />
+                Pause zwischen den Sätzen: {ex.restSeconds} s
+              </div>
               {ex.sets.map((s, setIdx) => (
                 <div key={setIdx} className="flex items-center gap-2">
                   <div className="w-6 text-center font-bold text-outline text-sm">{setIdx + 1}</div>

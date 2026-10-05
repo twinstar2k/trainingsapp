@@ -9,9 +9,8 @@ export const RECOMMENDATION_TOOL = {
     parameters: {
       type: 'object',
       additionalProperties: false,
-      required: ['summary', 'exercises'],
+      required: ['exercises'],
       properties: {
-        summary: { type: 'string', description: 'Kurze Gesamt-Begründung (Deutsch).' },
         exercises: {
           type: 'array',
           minItems: 1,
@@ -21,7 +20,7 @@ export const RECOMMENDATION_TOOL = {
             required: ['exerciseId', 'rationale', 'restSeconds', 'sets'],
             properties: {
               exerciseId: { type: 'string', description: 'MUSS eine der übergebenen exerciseId sein.' },
-              rationale: { type: 'string', description: 'Kurze Einzel-Begründung (Deutsch).' },
+              rationale: { type: 'string', description: '2–4 Sätze, Deutsch, du-Form: erst die Beobachtung aus dem Verlauf mit konkreten Zahlen, dann die Empfehlung für heute.' },
               restSeconds: { type: 'number', description: 'Empfohlene Pause in Sekunden.' },
               sets: {
                 type: 'array',

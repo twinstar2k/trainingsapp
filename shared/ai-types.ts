@@ -66,14 +66,13 @@ export interface RecommendedSet {
 /** Empfehlung für eine einzelne Übung. */
 export interface RecommendedExercise {
   exerciseId: string; // MUSS aus der angefragten Liste stammen
-  rationale: string;
+  rationale: string; // Analyse + Empfehlung in einem Fließtext — der einzige Text im Dialog
   restSeconds: number;
   sets: RecommendedSet[];
 }
 
 /** Validierte Gesamt-Empfehlung (Rückgabe der Cloud Function). */
 export interface RecommendationPayload {
-  summary: string;
   exercises: RecommendedExercise[];
 }
 

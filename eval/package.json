@@ -7,7 +7,7 @@
   "engines": { "node": ">=18" },
   "scripts": {
     "build:utils": "tsc ../src/utils/restTimer.ts ../src/lib/restSignal.ts ../src/utils/progressChange.ts --rootDir ../src --outDir lib --module esnext --target es2023 --lib es2023,dom --strict --skipLibCheck --typeRoots ./no-types",
-    "test": "npm run build:utils && node policy.test.mjs && node context.test.mjs && node session-scan.test.mjs && node studio-filter.test.mjs && node rest-timer.test.mjs && node rest-signal.test.mjs && node progress-change.test.mjs",
+    "test": "npm run build:utils && node policy.test.mjs && node context.test.mjs && node session-scan.test.mjs && node studio-filter.test.mjs && node guardrails.test.mjs && node rest-timer.test.mjs && node rest-signal.test.mjs && node progress-change.test.mjs",
     "eval": "node run-eval.mjs"
   }
 }
