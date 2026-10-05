@@ -35,9 +35,9 @@ if (!API_KEY) {
 
 const BASE_URL = process.env.REQUESTY_BASE_URL || 'https://router.eu.requesty.ai/v1';
 // Frankfurt/eu-central-1 (Bedrock) — exakte IDs via Copy-Button in Requesty prüfen.
-// haiku-4-5 = Sweet-Spot, minimax-m2.5 = günstiger Herausforderer, opus-4-8 = Qualitäts-Obergrenze.
+// sonnet-5-5 (Vertex EU) = Default seit 2026-10-05, haiku-4-5 = vorheriger Default zum Vergleich.
 const MODELS = (process.env.REQUESTY_MODELS ||
-  'bedrock/claude-haiku-4-5@eu-central-1,bedrock/minimax-m2.5@eu-central-1,bedrock/claude-opus-4-8@eu-central-1')
+  'vertex/claude-sonnet-5-5@eu,bedrock/claude-haiku-4-5@eu-central-1')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
 // Blended $/1M Tokens aus dem Requesty-Dashboard (Frankfurt) — grobe Näherung ohne in/out-Split.
@@ -63,7 +63,9 @@ async function callModel(model, messages) {
         model,
         messages,
         tools: [RECOMMENDATION_TOOL],
-        tool_choice: { type: 'function', function: { name: 'submit_recommendation' } },
+        // 'auto' statt erzwungenem Tool: Sonnet 5.5 lehnt erzwungenes tool_choice mit HTTP 400 ab
+        // (Spiegel von functions/src/llm/provider.ts). Der Prompt verlangt das Tool, der Retry fängt Ausreißer.
+        tool_choice: 'auto',
         temperature: 0.3,
       }),
     });
